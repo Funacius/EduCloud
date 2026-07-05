@@ -1,0 +1,170 @@
+openapi: 3.0.3
+info:
+  title: EduCloud Lite API
+  version: 0.1.0
+  description: Skeleton API contract for EduCloud Lite.
+servers:
+  - url: http://localhost:8000/api
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      responses:
+        "200":
+          description: User registered
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      responses:
+        "200":
+          description: User logged in
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+  /courses:
+    get:
+      tags: [Courses]
+      summary: Get course list
+      responses:
+        "200":
+          description: Course list
+    post:
+      tags: [Courses]
+      summary: Create course
+      responses:
+        "200":
+          description: Course created
+  /courses/{course_id}:
+    get:
+      tags: [Courses]
+      summary: Get course detail
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: Course detail
+    put:
+      tags: [Courses]
+      summary: Update course
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: Course updated
+    delete:
+      tags: [Courses]
+      summary: Delete course
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: Course deleted
+  /courses/{course_id}/lessons:
+    get:
+      tags: [Lessons]
+      summary: Get lessons by course
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: Lesson list
+    post:
+      tags: [Lessons]
+      summary: Create lesson
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: Lesson created
+  /lessons/{lesson_id}:
+    put:
+      tags: [Lessons]
+      summary: Update lesson
+      parameters:
+        - $ref: "#/components/parameters/LessonId"
+      responses:
+        "200":
+          description: Lesson updated
+    delete:
+      tags: [Lessons]
+      summary: Delete lesson
+      parameters:
+        - $ref: "#/components/parameters/LessonId"
+      responses:
+        "200":
+          description: Lesson deleted
+  /courses/{course_id}/enroll:
+    post:
+      tags: [Enrollment]
+      summary: Enroll course
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: Course enrolled
+  /my-courses:
+    get:
+      tags: [Enrollment]
+      summary: Get enrolled courses
+      responses:
+        "200":
+          description: Enrolled courses
+  /lessons/{lesson_id}/complete:
+    post:
+      tags: [Progress]
+      summary: Complete lesson
+      parameters:
+        - $ref: "#/components/parameters/LessonId"
+      responses:
+        "200":
+          description: Lesson completed
+  /courses/{course_id}/progress:
+    get:
+      tags: [Progress]
+      summary: Get course progress
+      parameters:
+        - $ref: "#/components/parameters/CourseId"
+      responses:
+        "200":
+          description: Course progress
+  /upload/course-thumbnail:
+    post:
+      tags: [Upload]
+      summary: Upload course thumbnail
+      responses:
+        "200":
+          description: Thumbnail uploaded
+  /upload/lesson-material:
+    post:
+      tags: [Upload]
+      summary: Upload lesson material
+      responses:
+        "200":
+          description: Material uploaded
+  /upload/video:
+    post:
+      tags: [Upload]
+      summary: Upload video
+      responses:
+        "200":
+          description: Video uploaded
+components:
+  parameters:
+    CourseId:
+      name: course_id
+      in: path
+      required: true
+      schema:
+        type: integer
+    LessonId:
+      name: lesson_id
+      in: path
+      required: true
+      schema:
+        type: integer
