@@ -4,4 +4,8 @@ export type Course = {
   description: string;
   instructorName: string;
   thumbnailUrl?: string;
+  level?: number | string;
+  category?: string;
+  tags?: string[];
+  duration?: string;
 };
