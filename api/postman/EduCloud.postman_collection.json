@@ -5,67 +5,177 @@
   },
   "item": [
     {
-      "name": "Register",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{base_url}}/auth/register",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"full_name\": \"Student One\",\n  \"email\": \"student@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"student\"\n}"
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Student One\",\n  \"email\": \"student@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"student\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Login",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{base_url}}/auth/login",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"student@example.com\",\n  \"password\": \"password123\"\n}"
+      "name": "Courses",
+      "item": [
+        {
+          "name": "Get Courses",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/courses"
+          }
+        },
+        {
+          "name": "Get Course Detail",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/courses/1"
+          }
+        },
+        {
+          "name": "Create Course",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/courses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"AWS Cloud Basics\",\n  \"description\": \"Intro course\",\n  \"thumbnail_url\": \"https://example.com/course-thumbnail.jpg\",\n  \"price\": 19.99,\n  \"status\": \"draft\"\n}"
+            },
+            "description": "Requires role instructor or admin. Fails with 403 until real JWT auth returns the caller's actual role (auth_middleware.py is still a placeholder)."
+          }
+        },
+        {
+          "name": "Update Course",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/courses/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"published\"\n}"
+            },
+            "description": "Requires being the course's instructor_id or an admin."
+          }
+        },
+        {
+          "name": "Delete Course",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/courses/1"
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Get Courses",
-      "request": {
-        "method": "GET",
-        "url": "{{base_url}}/courses"
-      }
-    },
-    {
-      "name": "Create Course",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{base_url}}/courses",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"title\": \"AWS Cloud Basics\",\n  \"description\": \"Intro course\"\n}"
+      "name": "Lessons",
+      "item": [
+        {
+          "name": "Get Lessons",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/courses/1/lessons"
+          }
+        },
+        {
+          "name": "Create Lesson",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/courses/1/lessons",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Introduction to AWS\",\n  \"content\": \"This lesson introduces basic AWS concepts.\",\n  \"video_url\": \"https://example.com/video.mp4\",\n  \"order_index\": 1\n}"
+            },
+            "description": "Requires being the parent course's instructor_id or an admin."
+          }
+        },
+        {
+          "name": "Update Lesson",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{base_url}}/lessons/1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_index\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Lesson",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/lessons/1"
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Enroll Course",
-      "request": {
-        "method": "POST",
-        "url": "{{base_url}}/courses/1/enroll"
-      }
+      "name": "Enrollment",
+      "item": [
+        {
+          "name": "Enroll Course",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/courses/1/enroll"
+          }
+        }
+      ]
     },
     {
-      "name": "Upload Course Thumbnail",
-      "request": {
-        "method": "POST",
-        "url": "{{base_url}}/upload/course-thumbnail"
-      }
+      "name": "Upload",
+      "item": [
+        {
+          "name": "Upload Course Thumbnail",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/upload/course-thumbnail"
+          }
+        }
+      ]
     }
   ],
   "variable": [
     {
       "key": "base_url",
       "value": "http://localhost:8000/api"
+    },
+    {
+      "key": "token",
+      "value": "dev-placeholder-token"
     }
   ]
 }

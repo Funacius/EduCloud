@@ -1,7 +1,12 @@
 from fastapi import FastAPI
 
+from app import models  # noqa: F401  (registers all models on Base.metadata before create_all)
 from app.config import settings
+from app.database import Base, engine
 from app.routes import auth_routes, course_routes, enrollment_routes, lesson_routes, progress_routes, upload_routes
+
+# TODO AWS + DevOps: Replace with Alembic migrations once RDS is provisioned.
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title=settings.APP_NAME)
 
