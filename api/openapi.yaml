@@ -1,10 +1,13 @@
 openapi: 3.0.3
 info:
   title: EduCloud Lite API
-  version: 0.1.0
-  description: Skeleton API contract for EduCloud Lite.
+  version: 0.2.0
+  description: |
+    Public API contract for EduCloud Lite. Course/Lesson JSON uses camelCase
+    and public string IDs such as `course-1` and `lesson-1`.
 servers:
   - url: http://localhost:8000/api
+
 paths:
   /auth/register:
     post:
@@ -27,78 +30,310 @@ paths:
       responses:
         "200":
           description: Current user
+
   /courses:
     get:
       tags: [Courses]
-      summary: Get course list
+      summary: List published courses
+      description: Returns a direct Course array in data without pagination metadata.
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive search over course title and description.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
       responses:
         "200":
-          description: Course list
+          description: Courses loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseListResponse"
+              example:
+                success: true
+                message: Courses loaded
+                data:
+                  - id: course-1
+                    title: Cloud Fundamentals
+                    description: Learn the basic concepts of cloud computing.
+                    instructorName: EduCloud Lite Team
+                    level: Beginner
+                    category: Foundations
+                    tags: [Cloud, AWS]
+                    duration: 4 lessons
+        "422":
+          $ref: "#/components/responses/ValidationError"
     post:
       tags: [Courses]
-      summary: Create course
+      summary: Create a published course
+      description: Instructor is taken from the authenticated actor, not the request body.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CourseCreate"
+            example:
+              title: Cloud Fundamentals
+              description: Learn the basic concepts of cloud computing.
+              thumbnailUrl: https://example.com/course.jpg
+              level: Beginner
+              category: Foundations
+              tags: [Cloud, AWS]
+              whatYouWillLearn:
+                - Understand cloud computing
+              requirements:
+                - Basic web development knowledge
       responses:
-        "200":
+        "201":
           description: Course created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/CourseForbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
   /courses/{course_id}:
+    parameters:
+      - $ref: "#/components/parameters/CourseId"
     get:
       tags: [Courses]
-      summary: Get course detail
-      parameters:
-        - $ref: "#/components/parameters/CourseId"
+      summary: Get published course detail
+      security: []
       responses:
         "200":
-          description: Course detail
+          description: Course loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseDetailResponse"
+              example:
+                success: true
+                message: Course loaded
+                data:
+                  id: course-1
+                  title: Cloud Fundamentals
+                  description: Learn the basic concepts of cloud computing.
+                  instructorName: EduCloud Lite Team
+                  level: Beginner
+                  category: Foundations
+                  tags: [Cloud, AWS]
+                  duration: 4 lessons
+                  videoCount: 4 video lessons
+                  whatYouWillLearn:
+                    - Understand cloud computing
+                  lessons:
+                    - Introduction to Cloud Computing
+                  requirements:
+                    - Basic web development knowledge
+        "400":
+          $ref: "#/components/responses/InvalidCourseId"
+        "404":
+          $ref: "#/components/responses/CourseNotFound"
     put:
       tags: [Courses]
-      summary: Update course
-      parameters:
-        - $ref: "#/components/parameters/CourseId"
+      summary: Update a course
+      description: Requires the owner instructor or an admin. Payload is partial and non-empty.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CourseUpdate"
+            example:
+              title: Cloud Fundamentals Updated
+              thumbnailUrl: https://example.com/new-course.jpg
       responses:
         "200":
           description: Course updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+        "400":
+          $ref: "#/components/responses/CourseBadRequest"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/CourseForbidden"
+        "404":
+          $ref: "#/components/responses/CourseNotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
     delete:
       tags: [Courses]
-      summary: Delete course
-      parameters:
-        - $ref: "#/components/parameters/CourseId"
+      summary: Archive a course
+      description: Soft-archives the course; it does not delete the database row.
+      security:
+        - bearerAuth: []
       responses:
         "200":
-          description: Course deleted
+          description: Course archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseArchiveResponse"
+              example:
+                success: true
+                message: Course archived
+                data:
+                  id: course-1
+                  archived: true
+        "400":
+          $ref: "#/components/responses/InvalidCourseId"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/CourseForbidden"
+        "404":
+          $ref: "#/components/responses/CourseNotFound"
+
   /courses/{course_id}/lessons:
+    parameters:
+      - $ref: "#/components/parameters/CourseId"
     get:
       tags: [Lessons]
-      summary: Get lessons by course
-      parameters:
-        - $ref: "#/components/parameters/CourseId"
+      summary: List active lessons for a published course
+      description: Public for anonymous and non-enrolled students in the MVP.
+      security: []
       responses:
         "200":
-          description: Lesson list
+          description: Lessons loaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonListResponse"
+              example:
+                success: true
+                message: Lessons loaded
+                data:
+                  - id: lesson-1
+                    courseId: course-1
+                    title: Introduction to AWS
+                    content: Lesson content
+                    videoUrl: https://example.com/video.mp4
+                    materialUrl: https://example.com/material.pdf
+                    order: 1
+        "400":
+          $ref: "#/components/responses/InvalidCourseId"
+        "404":
+          $ref: "#/components/responses/CourseNotFound"
     post:
       tags: [Lessons]
-      summary: Create lesson
-      parameters:
-        - $ref: "#/components/parameters/CourseId"
+      summary: Create a lesson
+      description: Requires the owner of the parent course or an admin.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LessonCreate"
+            example:
+              title: Introduction to AWS
+              content: Lesson content
+              videoUrl: https://example.com/video.mp4
+              materialUrl: https://example.com/material.pdf
+              order: 1
       responses:
-        "200":
+        "201":
           description: Lesson created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonResponse"
+        "400":
+          $ref: "#/components/responses/InvalidCourseId"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/LessonForbidden"
+        "404":
+          $ref: "#/components/responses/CourseNotFound"
+        "409":
+          $ref: "#/components/responses/LessonOrderConflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
   /lessons/{lesson_id}:
+    parameters:
+      - $ref: "#/components/parameters/LessonId"
     put:
       tags: [Lessons]
-      summary: Update lesson
-      parameters:
-        - $ref: "#/components/parameters/LessonId"
+      summary: Update a lesson
+      description: Requires the owner of the parent course or an admin. Payload is partial and non-empty.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LessonUpdate"
+            example:
+              title: Updated lesson title
+              order: 2
       responses:
         "200":
           description: Lesson updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonResponse"
+        "400":
+          $ref: "#/components/responses/LessonBadRequest"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/LessonForbidden"
+        "404":
+          $ref: "#/components/responses/LessonNotFound"
+        "409":
+          $ref: "#/components/responses/LessonOrderConflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
     delete:
       tags: [Lessons]
-      summary: Delete lesson
-      parameters:
-        - $ref: "#/components/parameters/LessonId"
+      summary: Archive a lesson
+      description: Soft-archives the lesson; it does not delete the database row.
+      security:
+        - bearerAuth: []
       responses:
         "200":
-          description: Lesson deleted
+          description: Lesson archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonArchiveResponse"
+              example:
+                success: true
+                message: Lesson archived
+                data:
+                  id: lesson-1
+                  archived: true
+        "400":
+          $ref: "#/components/responses/InvalidLessonId"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/LessonForbidden"
+        "404":
+          $ref: "#/components/responses/LessonNotFound"
+
   /courses/{course_id}/enroll:
     post:
       tags: [Enrollment]
@@ -154,17 +389,488 @@ paths:
       responses:
         "200":
           description: Video uploaded
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   parameters:
     CourseId:
       name: course_id
       in: path
       required: true
+      description: Public Course ID, for example `course-1`.
       schema:
-        type: integer
+        type: string
+        pattern: "^course-[1-9][0-9]*$"
+      example: course-1
     LessonId:
       name: lesson_id
       in: path
       required: true
+      description: Public Lesson ID, for example `lesson-1`.
       schema:
-        type: integer
+        type: string
+        pattern: "^lesson-[1-9][0-9]*$"
+      example: lesson-1
+
+  responses:
+    InvalidCourseId:
+      description: Course public ID has an invalid format or prefix.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: Invalid course ID
+            error: INVALID_PUBLIC_ID
+    InvalidLessonId:
+      description: Lesson public ID has an invalid format or prefix.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: Invalid lesson ID
+            error: INVALID_PUBLIC_ID
+    CourseBadRequest:
+      description: Invalid Course public ID or empty update payload.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            invalidPublicId:
+              value:
+                success: false
+                message: Invalid course ID
+                error: INVALID_PUBLIC_ID
+            emptyUpdate:
+              value:
+                success: false
+                message: No fields to update
+                error: VALIDATION_ERROR
+    LessonBadRequest:
+      description: Invalid Lesson public ID or empty update payload.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            invalidPublicId:
+              value:
+                success: false
+                message: Invalid lesson ID
+                error: INVALID_PUBLIC_ID
+            emptyUpdate:
+              value:
+                success: false
+                message: No fields to update
+                error: VALIDATION_ERROR
+    AuthenticationRequired:
+      description: A valid Bearer token is required.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: Authentication required
+            error: AUTHENTICATION_REQUIRED
+    CourseForbidden:
+      description: Actor role or Course ownership check failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: You cannot modify this course
+            error: COURSE_FORBIDDEN
+    LessonForbidden:
+      description: Actor role or parent Course ownership check failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: You cannot modify this lesson
+            error: LESSON_FORBIDDEN
+    CourseNotFound:
+      description: Course does not exist or is not public.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: Course not found
+            error: COURSE_NOT_FOUND
+    LessonNotFound:
+      description: Lesson does not exist or is not public.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: Lesson not found
+            error: LESSON_NOT_FOUND
+    LessonOrderConflict:
+      description: An active lesson already uses this order in the Course.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: Lesson order already exists in this course
+            error: LESSON_ORDER_CONFLICT
+    ValidationError:
+      description: Request path, query or body validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: Request validation failed
+            error: VALIDATION_ERROR
+
+  schemas:
+    CourseCreate:
+      type: object
+      additionalProperties: false
+      required: [title, description]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        level:
+          description: Frontend currently accepts a string or integer level.
+          oneOf:
+            - type: string
+            - type: integer
+          nullable: true
+        category:
+          type: string
+          maxLength: 100
+          nullable: true
+        tags:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+        whatYouWillLearn:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+        requirements:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+
+    CourseUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        description:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        level:
+          oneOf:
+            - type: string
+            - type: integer
+          nullable: true
+        category:
+          type: string
+          maxLength: 100
+          nullable: true
+        tags:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+        whatYouWillLearn:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+        requirements:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+
+    Course:
+      type: object
+      required: [id, title, description, instructorName]
+      properties:
+        id:
+          type: string
+          pattern: "^course-[1-9][0-9]*$"
+          example: course-1
+        title:
+          type: string
+        description:
+          type: string
+        instructorName:
+          type: string
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        level:
+          oneOf:
+            - type: string
+            - type: integer
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        duration:
+          type: string
+          example: 4 lessons
+
+    CourseDetail:
+      allOf:
+        - $ref: "#/components/schemas/Course"
+        - type: object
+          required: [videoCount, whatYouWillLearn, lessons, requirements]
+          properties:
+            videoCount:
+              type: string
+              example: 4 video lessons
+            whatYouWillLearn:
+              type: array
+              items:
+                type: string
+            lessons:
+              type: array
+              description: Active lesson titles ordered by order, then internal ID.
+              items:
+                type: string
+            requirements:
+              type: array
+              items:
+                type: string
+
+    LessonCreate:
+      type: object
+      additionalProperties: false
+      required: [title, order]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        content:
+          type: string
+          maxLength: 50000
+          default: ""
+        videoUrl:
+          type: string
+          format: uri
+          nullable: true
+        materialUrl:
+          type: string
+          format: uri
+          nullable: true
+        order:
+          type: integer
+          minimum: 1
+
+    LessonUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        content:
+          type: string
+          maxLength: 50000
+        videoUrl:
+          type: string
+          format: uri
+          nullable: true
+        materialUrl:
+          type: string
+          format: uri
+          nullable: true
+        order:
+          type: integer
+          minimum: 1
+
+    Lesson:
+      type: object
+      required: [id, courseId, title, content, order]
+      properties:
+        id:
+          type: string
+          pattern: "^lesson-[1-9][0-9]*$"
+          example: lesson-1
+        courseId:
+          type: string
+          pattern: "^course-[1-9][0-9]*$"
+          example: course-1
+        title:
+          type: string
+        content:
+          type: string
+        videoUrl:
+          type: string
+          format: uri
+          nullable: true
+        materialUrl:
+          type: string
+          format: uri
+          nullable: true
+        order:
+          type: integer
+          minimum: 1
+
+    ArchiveResult:
+      type: object
+      required: [id, archived]
+      properties:
+        id:
+          type: string
+          pattern: "^(course|lesson)-[1-9][0-9]*$"
+        archived:
+          type: boolean
+          enum: [true]
+
+    ErrorResponse:
+      type: object
+      required: [success, message, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        message:
+          type: string
+        error:
+          type: string
+
+    CourseListResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Courses loaded
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Course"
+
+    CourseResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/Course"
+
+    CourseDetailResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/CourseDetail"
+
+    CourseArchiveResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/ArchiveResult"
+    LessonListResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Lessons loaded
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Lesson"
+
+    LessonResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/Lesson"
+
+    LessonArchiveResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/ArchiveResult"
