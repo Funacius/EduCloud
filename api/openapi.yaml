@@ -34,71 +34,152 @@ paths:
       responses:
         "200":
           description: Course list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Course"
     post:
       tags: [Courses]
-      summary: Create course
+      summary: Create course (instructor role required)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CourseCreate"
       responses:
         "200":
           description: Course created
+        "403":
+          description: Instructor role required
   /courses/{course_id}:
     get:
       tags: [Courses]
-      summary: Get course detail
+      summary: Get course detail with lessons
       parameters:
         - $ref: "#/components/parameters/CourseId"
       responses:
         "200":
           description: Course detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CourseDetail"
+        "404":
+          description: Course not found
     put:
       tags: [Courses]
-      summary: Update course
+      summary: Update course (owner instructor or admin only)
       parameters:
         - $ref: "#/components/parameters/CourseId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CourseUpdate"
       responses:
         "200":
           description: Course updated
+        "403":
+          description: Not the course owner or admin
+        "404":
+          description: Course not found
     delete:
       tags: [Courses]
-      summary: Delete course
+      summary: Delete course (owner instructor or admin only)
       parameters:
         - $ref: "#/components/parameters/CourseId"
       responses:
         "200":
           description: Course deleted
+        "403":
+          description: Not the course owner or admin
+        "404":
+          description: Course not found
   /courses/{course_id}/lessons:
     get:
       tags: [Lessons]
-      summary: Get lessons by course
+      summary: Get lessons by course, ordered by order_index
       parameters:
         - $ref: "#/components/parameters/CourseId"
       responses:
         "200":
           description: Lesson list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Lesson"
+        "404":
+          description: Course not found
     post:
       tags: [Lessons]
-      summary: Create lesson
+      summary: Create lesson (course owner instructor or admin only)
       parameters:
         - $ref: "#/components/parameters/CourseId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LessonCreate"
       responses:
         "200":
           description: Lesson created
+        "403":
+          description: Not the course owner or admin
+        "404":
+          description: Course not found
   /lessons/{lesson_id}:
     put:
       tags: [Lessons]
-      summary: Update lesson
+      summary: Update lesson (course owner instructor or admin only)
       parameters:
         - $ref: "#/components/parameters/LessonId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LessonUpdate"
       responses:
         "200":
           description: Lesson updated
+        "403":
+          description: Not the course owner or admin
+        "404":
+          description: Lesson not found
     delete:
       tags: [Lessons]
-      summary: Delete lesson
+      summary: Delete lesson (course owner instructor or admin only)
       parameters:
         - $ref: "#/components/parameters/LessonId"
       responses:
         "200":
           description: Lesson deleted
+        "403":
+          description: Not the course owner or admin
+        "404":
+          description: Lesson not found
   /courses/{course_id}/enroll:
     post:
       tags: [Enrollment]
@@ -168,3 +249,136 @@ components:
       required: true
       schema:
         type: integer
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data: {}
+    CourseCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        thumbnail_url:
+          type: string
+          nullable: true
+        price:
+          type: number
+          default: 0
+        status:
+          type: string
+          enum: [draft, published, archived]
+          default: draft
+    CourseUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        thumbnail_url:
+          type: string
+          nullable: true
+        price:
+          type: number
+        status:
+          type: string
+          enum: [draft, published, archived]
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        thumbnail_url:
+          type: string
+          nullable: true
+        price:
+          type: number
+        status:
+          type: string
+          enum: [draft, published, archived]
+        instructor_id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CourseDetail:
+      allOf:
+        - $ref: "#/components/schemas/Course"
+        - type: object
+          properties:
+            lessons:
+              type: array
+              items:
+                $ref: "#/components/schemas/Lesson"
+    LessonCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+          nullable: true
+        video_url:
+          type: string
+          nullable: true
+        material_url:
+          type: string
+          nullable: true
+        order_index:
+          type: integer
+          default: 0
+    LessonUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+          nullable: true
+        video_url:
+          type: string
+          nullable: true
+        material_url:
+          type: string
+          nullable: true
+        order_index:
+          type: integer
+    Lesson:
+      type: object
+      properties:
+        id:
+          type: integer
+        course_id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+          nullable: true
+        video_url:
+          type: string
+          nullable: true
+        material_url:
+          type: string
+          nullable: true
+        order_index:
+          type: integer

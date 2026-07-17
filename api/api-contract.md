@@ -53,6 +53,15 @@ API Developer - Enrollment, Upload & Testing owns:
 - `POST /api/upload/lesson-material`
 - `POST /api/upload/video`
 
+## Course & Lesson Notes
+
+- `POST /api/courses` requires the caller's role to be `instructor` or `admin` (send `Authorization: Bearer <token>`).
+- `PUT/DELETE /api/courses/{course_id}` and `PUT/DELETE /api/lessons/{lesson_id}` require the caller to be the course's `instructor_id` or an `admin`.
+- Course fields: `title`, `description`, `thumbnail_url`, `price`, `status` (`draft` | `published` | `archived`), `instructor_id`, `created_at`, `updated_at`.
+- `GET /api/courses/{course_id}` returns the course plus its `lessons`, ordered by `order_index`.
+- Lesson fields: `title`, `content`, `video_url`, `material_url`, `order_index`, `course_id`.
+- Full request/response shapes are defined in `openapi.yaml` (`Course`, `CourseDetail`, `Lesson`, and their `*Create`/`*Update` variants).
+
 ## Standard Response Format
 
 Success:
