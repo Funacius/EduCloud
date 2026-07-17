@@ -1,11 +1,20 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { getRoleHome, useAuth } from '../auth/AuthContext';
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 function LoginPage() {
   const [authError, setAuthError] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { currentUser, signIn } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  if (currentUser) {
+    return <Navigate to={getRoleHome(currentUser.role)} replace />;
+  }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -14,7 +23,14 @@ function LoginPage() {
       return;
     }
 
-    setAuthError('Email or password is incorrect.');
+    const result = signIn(email, password);
+    if ('error' in result) {
+      setAuthError(result.error);
+      return;
+    }
+
+    const requestedPath = (location.state as { from?: string } | null)?.from;
+    navigate(requestedPath || getRoleHome(result.user.role), { replace: true });
   };
 
   const handleEmailChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -48,6 +64,11 @@ function LoginPage() {
               autoComplete="current-password"
               placeholder="Enter your password"
               type="password"
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setAuthError('');
+              }}
               aria-invalid={Boolean(authError)}
               aria-describedby={authError ? 'login-error' : undefined}
             />

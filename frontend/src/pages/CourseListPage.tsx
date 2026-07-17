@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import CourseCard from '../components/CourseCard';
+import { useAuth } from '../auth/AuthContext';
 
 const sampleCourses = [
   {
@@ -55,6 +56,16 @@ const sampleCourses = [
 ];
 
 function CourseListPage() {
+  const { currentUser } = useAuth();
+
+  const roleAction = currentUser?.role === 'student'
+    ? { to: '/my-learning', label: 'Continue Learning' }
+    : currentUser?.role === 'instructor'
+      ? { to: '/instructor/courses', label: 'Manage Courses' }
+      : currentUser?.role === 'admin'
+        ? { to: '/admin', label: 'Open Admin Dashboard' }
+        : { to: '/login', label: 'Sign in' };
+
   return (
     <>
       <section className="hero">
@@ -73,7 +84,7 @@ function CourseListPage() {
           </p>
           <div className="hero-actions">
             <a className="primary-action" href="#available-courses">Browse Courses</a>
-            <Link className="secondary-action" to="/instructor/courses">Instructor Dashboard</Link>
+            <Link className="secondary-action" to={roleAction.to}>{roleAction.label}</Link>
           </div>
         </div>
       </section>

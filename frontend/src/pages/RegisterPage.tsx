@@ -1,4 +1,6 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { getRoleHome, useAuth } from '../auth/AuthContext';
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -9,6 +11,13 @@ function RegisterPage() {
     password: '',
     confirmPassword: ''
   });
+  const [formError, setFormError] = useState('');
+  const { currentUser, registerStudent } = useAuth();
+  const navigate = useNavigate();
+
+  if (currentUser) {
+    return <Navigate to={getRoleHome(currentUser.role)} replace />;
+  }
 
   const passwordsDoNotMatch = useMemo(
     () => form.confirmPassword.length > 0 && form.password !== form.confirmPassword,
@@ -25,12 +34,27 @@ function RegisterPage() {
       }));
     };
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!form.certificateName.trim()) {
+      setFormError('Please enter your full name.');
+      return;
+    }
+    if (emailIsInvalid || !form.email || form.password.length < 8 || passwordsDoNotMatch) {
+      setFormError('Please check your account information.');
+      return;
+    }
+
+    const user = registerStudent(form.certificateName, form.email);
+    navigate(getRoleHome(user.role), { replace: true });
+  };
+
   return (
     <section className="page auth-page">
       <div className="auth-card">
         <h1>Create your EduCloud Lite account</h1>
-        <p>Join the platform as a Student or Instructor.</p>
-        <form className="auth-form" noValidate>
+        <p>Start learning with a Student account. Instructor access is assigned by an Admin.</p>
+        <form className="auth-form" noValidate onSubmit={handleSubmit}>
           <label>
             <span>Name on certificate</span>
             <input
@@ -84,7 +108,8 @@ function RegisterPage() {
               Password and confirm password do not match.
             </p>
           )}
-          <button type="button" disabled={passwordsDoNotMatch || emailIsInvalid}>
+          {formError && <p className="form-error">{formError}</p>}
+          <button type="submit" disabled={passwordsDoNotMatch || emailIsInvalid}>
             Create account
           </button>
         </form>
