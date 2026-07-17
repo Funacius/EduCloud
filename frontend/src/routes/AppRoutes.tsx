@@ -8,6 +8,7 @@ import CourseDetailPage from '../pages/CourseDetailPage';
 import MyLearningPage from '../pages/MyLearningPage';
 import LearningPage from '../pages/LearningPage';
 import InstructorCoursesPage from '../pages/InstructorCoursesPage';
+import CreateCoursePage from '../pages/CreateCoursePage';
 import AdminDashboardPage from '../pages/AdminDashboardPage';
 import RequireRole from '../components/RequireRole';
 import { getRoleHome, useAuth } from '../auth/AuthContext';
@@ -49,6 +50,22 @@ function AppRoutes() {
           element={
             <RequireRole allow={['instructor']}>
               <InstructorCoursesPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/instructor/courses/new"
+          element={
+            <RequireRole allow={['instructor']}>
+              <CreateCoursePage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/instructor/courses/:courseId/edit"
+          element={
+            <RequireRole allow={['instructor']}>
+              <CreateCoursePage />
             </RequireRole>
           }
         />

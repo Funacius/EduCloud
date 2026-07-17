@@ -61,7 +61,7 @@
             "url": "{{base_url}}/courses",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"AWS Cloud Basics\",\n  \"description\": \"Intro course\",\n  \"thumbnail_url\": \"https://example.com/course-thumbnail.jpg\",\n  \"price\": 19.99,\n  \"status\": \"draft\"\n}"
+              "raw": "{\n  \"title\": \"AWS Cloud Basics\",\n  \"description\": \"Intro course\",\n  \"level\": \"Beginner\",\n  \"category\": \"Cloud Computing\",\n  \"learning_outcomes\": [\n    \"Identify core AWS services\",\n    \"Explain common cloud architecture patterns\"\n  ],\n  \"requirements\": [\n    \"A computer with internet access\"\n  ],\n  \"thumbnail_url\": \"https://example.com/course-thumbnail.jpg\",\n  \"price\": 19.99,\n  \"status\": \"draft\"\n}"
             },
             "description": "Use dev-instructor-token with ENABLE_DEV_AUTH=true for local Postman testing."
           },
@@ -90,7 +90,7 @@
             "url": "{{base_url}}/courses/{{course_id}}",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"published\"\n}"
+              "raw": "{\n  \"level\": \"Intermediate\",\n  \"learning_outcomes\": [\n    \"Build a small AWS solution\"\n  ],\n  \"requirements\": [\n    \"Basic cloud knowledge\"\n  ],\n  \"status\": \"published\"\n}"
             },
             "description": "Requires being the course's instructor_id or an admin."
           }
@@ -188,7 +188,51 @@
           "name": "Upload Course Thumbnail",
           "request": {
             "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "course_id", "value": "{{course_id}}", "type": "text" },
+                { "key": "file", "type": "file", "src": [] }
+              ]
+            },
             "url": "{{base_url}}/upload/course-thumbnail"
+          }
+        },
+        {
+          "name": "Upload Lesson Material",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "course_id", "value": "{{course_id}}", "type": "text" },
+                { "key": "file", "type": "file", "src": [] }
+              ]
+            },
+            "url": "{{base_url}}/upload/lesson-material"
+          }
+        },
+        {
+          "name": "Upload Lesson Video",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "course_id", "value": "{{course_id}}", "type": "text" },
+                { "key": "file", "type": "file", "src": [] }
+              ]
+            },
+            "url": "{{base_url}}/upload/video"
           }
         }
       ]

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -11,6 +11,10 @@ class Course(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
+    level = Column(String(50), nullable=False, default="All levels")
+    category = Column(String(100), nullable=False, default="EduCloud")
+    learning_outcomes = Column(JSON, nullable=False, default=list)
+    requirements = Column(JSON, nullable=False, default=list)
     thumbnail_url = Column(String, nullable=True)
     price = Column(Numeric(10, 2), nullable=False, default=0)
     status = Column(String, nullable=False, default="draft")

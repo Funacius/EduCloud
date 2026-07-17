@@ -267,6 +267,20 @@ components:
         description:
           type: string
           nullable: true
+        level:
+          type: string
+          default: All levels
+        category:
+          type: string
+          default: EduCloud
+        learning_outcomes:
+          type: array
+          items:
+            type: string
+        requirements:
+          type: array
+          items:
+            type: string
         thumbnail_url:
           type: string
           nullable: true
@@ -275,7 +289,7 @@ components:
           default: 0
         status:
           type: string
-          enum: [draft, published, archived]
+          enum: [draft, published, hidden, archived]
           default: draft
     CourseUpdate:
       type: object
@@ -285,6 +299,18 @@ components:
         description:
           type: string
           nullable: true
+        level:
+          type: string
+        category:
+          type: string
+        learning_outcomes:
+          type: array
+          items:
+            type: string
+        requirements:
+          type: array
+          items:
+            type: string
         thumbnail_url:
           type: string
           nullable: true
@@ -292,7 +318,7 @@ components:
           type: number
         status:
           type: string
-          enum: [draft, published, archived]
+          enum: [draft, published, hidden, archived]
     Course:
       type: object
       properties:
@@ -303,6 +329,18 @@ components:
         description:
           type: string
           nullable: true
+        level:
+          type: string
+        category:
+          type: string
+        learning_outcomes:
+          type: array
+          items:
+            type: string
+        requirements:
+          type: array
+          items:
+            type: string
         thumbnail_url:
           type: string
           nullable: true
@@ -310,7 +348,7 @@ components:
           type: number
         status:
           type: string
-          enum: [draft, published, archived]
+          enum: [draft, published, hidden, archived]
         instructor_id:
           type: integer
         created_at:

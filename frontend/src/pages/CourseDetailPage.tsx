@@ -1,7 +1,24 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import logoUrl from '../../image/logo.png';
+import { getCourseById } from '../services/courseService';
+import { enrollCourse } from '../services/enrollmentService';
+import { useAuth } from '../auth/AuthContext';
 
-const courses = [
+type DetailCourse = {
+  id: string;
+  title: string;
+  level: string;
+  category: string;
+  duration: string;
+  videoCount: string;
+  whatYouWillLearn: string[];
+  lessons: string[];
+  requirements: string[];
+  thumbnailUrl?: string;
+};
+
+const courses: DetailCourse[] = [
   {
     id: 'course-1',
     title: 'Cloud Fundamentals',
@@ -128,7 +145,89 @@ function DetailIcon({ name }: DetailIconProps) {
 
 function CourseDetailPage() {
   const { courseId } = useParams();
-  const course = courses.find((item) => item.id === courseId) ?? courses[0];
+  const navigate = useNavigate();
+  const { currentUser, token } = useAuth();
+  const staticCourse = undefined;
+  const [course, setCourse] = useState<DetailCourse | null>(staticCourse ?? null);
+  const [isLoading, setIsLoading] = useState(!staticCourse);
+  const [error, setError] = useState('');
+  const [isEnrolling, setIsEnrolling] = useState(false);
+
+  useEffect(() => {
+    if (staticCourse || !courseId) {
+      setCourse(staticCourse ?? null);
+      setIsLoading(false);
+      return;
+    }
+
+    let isActive = true;
+    setIsLoading(true);
+    setError('');
+    getCourseById(courseId)
+      .then((response) => {
+        if (!isActive || !response.data) return;
+        const record = response.data;
+        const lessonCount = record.lessons.length;
+        const videoCount = record.lessons.filter((lesson) => lesson.video_url).length;
+        setCourse({
+          id: String(record.id),
+          title: record.title,
+          level: record.level,
+          category: record.category,
+          duration: lessonCount > 0 ? `${lessonCount} lessons` : 'Self-paced',
+          videoCount: `${videoCount} video ${videoCount === 1 ? 'lesson' : 'lessons'}`,
+          whatYouWillLearn: record.learning_outcomes.length > 0
+            ? record.learning_outcomes
+            : [record.description || 'Course learning outcomes will be added by the instructor.'],
+          lessons: record.lessons.map((lesson) => lesson.title),
+          requirements: record.requirements.length > 0
+            ? record.requirements
+            : ['No prerequisites are required.'],
+          thumbnailUrl: record.thumbnail_url || undefined
+        });
+      })
+      .catch((caughtError) => {
+        if (isActive) {
+          setError(caughtError instanceof Error ? caughtError.message : 'Unable to load this course.');
+        }
+      })
+      .finally(() => {
+        if (isActive) setIsLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [courseId, staticCourse]);
+
+  if (isLoading) {
+    return <section className="course-detail-state">Loading course...</section>;
+  }
+
+  if (error || !course) {
+    return (
+      <section className="course-detail-state course-detail-error">
+        <strong>{error || 'Course not found.'}</strong>
+        <Link to="/courses">Back to courses</Link>
+      </section>
+    );
+  }
+
+  const startCourse = async () => {
+    if (!currentUser || !token) {
+      navigate('/login', { state: { from: `/courses/${course.id}` } });
+      return;
+    }
+    if (currentUser.role !== 'student') return;
+    setIsEnrolling(true);
+    try {
+      await enrollCourse(course.id, token);
+      navigate(`/learn/${course.id}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to enroll in this course.');
+      setIsEnrolling(false);
+    }
+  };
 
   return (
     <section className="course-detail-page">
@@ -151,7 +250,13 @@ function CourseDetailPage() {
           </ul>
         </div>
         <div className="detail-thumb" aria-hidden="true">
-          <img src={logoUrl} alt="" />
+          <img
+            src={course.thumbnailUrl || logoUrl}
+            alt=""
+            onError={(event) => {
+              event.currentTarget.src = logoUrl;
+            }}
+          />
         </div>
       </div>
 
@@ -175,9 +280,9 @@ function CourseDetailPage() {
             <span>{course.videoCount}</span>
           </div>
           <div className="includes-actions">
-            <Link className="start-course-button" to={`/learn/${course.id}`}>
-              Start Course
-            </Link>
+            <button className="start-course-button" type="button" onClick={() => void startCourse()} disabled={isEnrolling || Boolean(currentUser && currentUser.role !== 'student')}>
+              {isEnrolling ? 'Enrolling...' : currentUser?.role && currentUser.role !== 'student' ? 'Student access only' : 'Start Course'}
+            </button>
           </div>
         </aside>
 
@@ -189,9 +294,9 @@ function CourseDetailPage() {
               <strong>{course.title}</strong>
             </div>
             <ul>
-              {course.lessons.map((lesson) => (
-                <li key={lesson}>{lesson}</li>
-              ))}
+              {course.lessons.length > 0
+                ? course.lessons.map((lesson) => <li key={lesson}>{lesson}</li>)
+                : <li>Lessons will be added by the instructor.</li>}
             </ul>
           </div>
         </section>

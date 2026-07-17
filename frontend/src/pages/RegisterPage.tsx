@@ -12,6 +12,7 @@ function RegisterPage() {
     confirmPassword: ''
   });
   const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { currentUser, registerStudent } = useAuth();
   const navigate = useNavigate();
 
@@ -34,7 +35,7 @@ function RegisterPage() {
       }));
     };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!form.certificateName.trim()) {
       setFormError('Please enter your full name.');
@@ -45,8 +46,14 @@ function RegisterPage() {
       return;
     }
 
-    const user = registerStudent(form.certificateName, form.email);
-    navigate(getRoleHome(user.role), { replace: true });
+    setIsSubmitting(true);
+    const result = await registerStudent(form.certificateName, form.email, form.password);
+    setIsSubmitting(false);
+    if ('error' in result) {
+      setFormError(result.error);
+      return;
+    }
+    navigate(getRoleHome(result.user.role), { replace: true });
   };
 
   return (
@@ -109,8 +116,8 @@ function RegisterPage() {
             </p>
           )}
           {formError && <p className="form-error">{formError}</p>}
-          <button type="submit" disabled={passwordsDoNotMatch || emailIsInvalid}>
-            Create account
+          <button type="submit" disabled={passwordsDoNotMatch || emailIsInvalid || isSubmitting}>
+            {isSubmitting ? 'Creating account...' : 'Create account'}
           </button>
         </form>
       </div>

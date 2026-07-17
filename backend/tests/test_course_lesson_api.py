@@ -6,9 +6,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import models  # noqa: F401
+from app.config import settings
 from app.database import Base, get_db
 from app.middleware.auth_middleware import get_current_user
-from app.routes import course_routes, lesson_routes
+from app.routes import course_routes, lesson_routes, upload_routes
 
 
 engine = create_engine(
@@ -28,6 +29,7 @@ def app():
     test_app = FastAPI()
     test_app.include_router(course_routes.router, prefix="/api")
     test_app.include_router(lesson_routes.router, prefix="/api")
+    test_app.include_router(upload_routes.router, prefix="/api")
 
     def override_db():
         yield db
@@ -54,6 +56,10 @@ def create_course(client: TestClient) -> int:
         json={
             "title": "AWS Cloud Foundations",
             "description": "Core AWS services and architecture concepts.",
+            "level": "Beginner",
+            "category": "Cloud Computing",
+            "learning_outcomes": ["Identify core AWS services"],
+            "requirements": ["A computer with internet access"],
             "price": 0,
             "status": "published",
         },
@@ -80,6 +86,8 @@ def test_course_and_lesson_crud(client: TestClient):
     detail_response = client.get(f"/api/courses/{course_id}")
     assert detail_response.status_code == 200
     assert detail_response.json()["data"]["lessons"][0]["id"] == lesson_id
+    assert detail_response.json()["data"]["level"] == "Beginner"
+    assert detail_response.json()["data"]["learning_outcomes"] == ["Identify core AWS services"]
 
     update_lesson_response = client.put(
         f"/api/lessons/{lesson_id}",
@@ -90,10 +98,22 @@ def test_course_and_lesson_crud(client: TestClient):
 
     update_course_response = client.put(
         f"/api/courses/{course_id}",
-        json={"title": "AWS Cloud Essentials"},
+        json={
+            "title": "AWS Cloud Essentials",
+            "status": "hidden",
+            "level": "Intermediate",
+            "requirements": ["Basic AWS knowledge"],
+        },
     )
     assert update_course_response.status_code == 200
     assert update_course_response.json()["data"]["title"] == "AWS Cloud Essentials"
+    assert update_course_response.json()["data"]["status"] == "hidden"
+    assert update_course_response.json()["data"]["level"] == "Intermediate"
+    assert update_course_response.json()["data"]["requirements"] == ["Basic AWS knowledge"]
+
+    hidden_list_response = client.get("/api/courses")
+    assert hidden_list_response.status_code == 200
+    assert hidden_list_response.json()["data"] == []
 
     assert client.delete(f"/api/lessons/{lesson_id}").status_code == 200
     assert client.delete(f"/api/courses/{course_id}").status_code == 200
@@ -104,6 +124,54 @@ def test_course_validation_rejects_short_title(client: TestClient):
     response = client.post("/api/courses", json={"title": "A"})
 
     assert response.status_code == 422
+
+
+def test_instructor_can_list_owned_courses(client: TestClient):
+    course_id = create_course(client)
+
+    response = client.get("/api/courses/mine")
+
+    assert response.status_code == 200
+    assert [course["id"] for course in response.json()["data"]] == [course_id]
+
+
+def test_instructor_can_upload_lesson_files(client: TestClient, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "UPLOAD_STORAGE", "local")
+    monkeypatch.setattr(settings, "LOCAL_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(settings, "PUBLIC_BASE_URL", "http://testserver")
+    course_id = create_course(client)
+
+    material_response = client.post(
+        "/api/upload/lesson-material",
+        data={"course_id": str(course_id)},
+        files={"file": ("lesson-notes.pdf", b"pdf-content", "application/pdf")},
+    )
+    video_response = client.post(
+        "/api/upload/video",
+        data={"course_id": str(course_id)},
+        files={"file": ("lesson.mp4", b"video-content", "video/mp4")},
+    )
+
+    assert material_response.status_code == 200
+    assert material_response.json()["data"]["storage"] == "local"
+    assert video_response.status_code == 200
+    assert video_response.json()["data"]["url"].startswith("http://testserver/uploads/videos/")
+    assert len(list(tmp_path.rglob("*.pdf"))) == 1
+    assert len(list(tmp_path.rglob("*.mp4"))) == 1
+
+
+def test_upload_rejects_unsupported_file_type(client: TestClient, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "UPLOAD_STORAGE", "local")
+    monkeypatch.setattr(settings, "LOCAL_UPLOAD_DIR", str(tmp_path))
+    course_id = create_course(client)
+
+    response = client.post(
+        "/api/upload/lesson-material",
+        data={"course_id": str(course_id)},
+        files={"file": ("script.exe", b"not-allowed", "application/octet-stream")},
+    )
+
+    assert response.status_code == 415
 
 
 def test_student_cannot_create_course(app):

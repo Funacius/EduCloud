@@ -7,7 +7,22 @@ from app.utils.authorization import require_course_owner_or_admin, require_instr
 
 
 def list_courses(db: Session) -> list[Course]:
-    return db.query(Course).order_by(Course.created_at.desc()).all()
+    return (
+        db.query(Course)
+        .filter(Course.status == "published")
+        .order_by(Course.created_at.desc())
+        .all()
+    )
+
+
+def list_instructor_courses(db: Session, current_user: dict) -> list[Course]:
+    require_instructor(current_user)
+    return (
+        db.query(Course)
+        .filter(Course.instructor_id == current_user["user_id"])
+        .order_by(Course.updated_at.desc())
+        .all()
+    )
 
 
 def get_course(db: Session, course_id: int) -> Course:

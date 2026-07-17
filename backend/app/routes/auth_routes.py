@@ -1,5 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
+from app.database import get_db
+from app.middleware.auth_middleware import get_current_user
+from app.schemas.user_schema import AuthResult, LoginRequest, UserCreate, UserRead
 from app.services import auth_service
 from app.utils.response import success_response
 
@@ -7,18 +11,17 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/register")
-def register(payload: dict):
-    # TODO Backend Core Developer: Use UserCreate schema and database session.
-    return success_response("User registered successfully", auth_service.register_user(payload))
+def register(payload: UserCreate, db: Session = Depends(get_db)):
+    user = auth_service.register_user(db, payload)
+    result = {"token": auth_service.create_access_token(user.id, user.role), "user": UserRead.model_validate(user)}
+    return success_response("User registered successfully", AuthResult.model_validate(result))
 
 
 @router.post("/login")
-def login(payload: dict):
-    # TODO Backend Core Developer: Validate login credentials and return JWT.
-    return success_response("User logged in successfully", auth_service.login_user(payload))
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    return success_response("User logged in successfully", AuthResult.model_validate(auth_service.login_user(db, payload)))
 
 
 @router.get("/me")
-def me():
-    # TODO Backend Core Developer: Protect this route with auth middleware.
-    return success_response("Current user loaded", auth_service.get_current_user())
+def me(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    return success_response("Current user loaded", UserRead.model_validate(auth_service.get_user(db, current_user["user_id"])))

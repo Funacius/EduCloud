@@ -8,6 +8,7 @@ function LoginPage() {
   const [authError, setAuthError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { currentUser, signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -16,14 +17,16 @@ function LoginPage() {
     return <Navigate to={getRoleHome(currentUser.role)} replace />;
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isValidEmail(email)) {
       setAuthError('Please enter a valid email address.');
       return;
     }
 
-    const result = signIn(email, password);
+    setIsSubmitting(true);
+    const result = await signIn(email, password);
+    setIsSubmitting(false);
     if ('error' in result) {
       setAuthError(result.error);
       return;
@@ -78,7 +81,7 @@ function LoginPage() {
               {authError}
             </p>
           )}
-          <button type="submit">Sign in</button>
+          <button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Signing in...' : 'Sign in'}</button>
           <Link className="auth-link" to="/forgot-password">
             Forgot password?
           </Link>

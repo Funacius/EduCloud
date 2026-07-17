@@ -13,7 +13,7 @@ function ForgotPasswordPage() {
       return;
     }
 
-    setEmailError('We could not find an account with that email.');
+    setEmailError('Password reset email is not configured yet. Contact an administrator for local development access.');
   };
 
   const handleEmailChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -27,7 +27,7 @@ function ForgotPasswordPage() {
     <section className="page auth-page">
       <div className="auth-card">
         <h1>Reset your password</h1>
-        <p>Enter your email address and EduCloud Lite will send you a link to create a new password.</p>
+        <p>Password reset by email is not available in this local development build.</p>
         <form className="auth-form" onSubmit={handleSubmit} noValidate>
           <label>
             <span>Email</span>
@@ -46,7 +46,7 @@ function ForgotPasswordPage() {
               {emailError}
             </p>
           )}
-          <button type="submit">Send reset link</button>
+          <button type="submit">Check reset availability</button>
         </form>
       </div>
     </section>

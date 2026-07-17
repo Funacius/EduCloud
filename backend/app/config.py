@@ -23,8 +23,20 @@ class Settings:
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     ENABLE_DEV_AUTH: bool = env_flag("ENABLE_DEV_AUTH")
     DEV_INSTRUCTOR_USER_ID: int = int(os.getenv("DEV_INSTRUCTOR_USER_ID", "900001"))
+    CORS_ORIGINS: tuple[str, ...] = tuple(
+        origin.strip()
+        for origin in os.getenv(
+            "CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173",
+        ).split(",")
+        if origin.strip()
+    )
     AWS_REGION: str = os.getenv("AWS_REGION", "ap-southeast-1")
     AWS_S3_BUCKET_NAME: str = os.getenv("AWS_S3_BUCKET_NAME", "educloud-lite-demo-bucket")
+    AWS_S3_PUBLIC_BASE_URL: str = os.getenv("AWS_S3_PUBLIC_BASE_URL", "")
+    UPLOAD_STORAGE: str = os.getenv("UPLOAD_STORAGE", "local")
+    LOCAL_UPLOAD_DIR: str = os.getenv("LOCAL_UPLOAD_DIR", "uploads")
+    PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "http://127.0.0.1:8001")
 
 
 settings = Settings()

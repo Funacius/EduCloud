@@ -51,6 +51,7 @@ function CourseCard({ course }: CourseCardProps) {
       <div className="course-main">
         <div className="course-content">
           <h3>{course.title}</h3>
+          <p className="course-description">{course.description}</p>
           <ul className="course-meta">
             <li>
               <CourseIcon name="level" />
@@ -71,7 +72,13 @@ function CourseCard({ course }: CourseCardProps) {
           </ul>
         </div>
         <div className="course-thumb" aria-hidden="true">
-          <img src={course.thumbnailUrl ?? logoUrl} alt="" />
+          <img
+            src={course.thumbnailUrl ?? logoUrl}
+            alt=""
+            onError={(event) => {
+              event.currentTarget.src = logoUrl;
+            }}
+          />
         </div>
       </div>
       <div className="course-actions">

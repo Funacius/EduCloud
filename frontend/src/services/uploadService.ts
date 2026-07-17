@@ -1,15 +1,33 @@
 import { apiRequest } from './apiClient';
 import type { ApiResponse } from '../types/api';
 
-export function uploadCourseThumbnail(_file: File): Promise<ApiResponse<{ url: string }>> {
-  // TODO Frontend Developer: Use FormData when upload endpoint is implemented.
-  return apiRequest('/upload/course-thumbnail', { method: 'POST' });
+
+export type UploadResult = {
+  url: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  storage: 'local' | 's3';
+};
+
+function uploadFile(path: string, file: File, courseId: string): Promise<ApiResponse<UploadResult>> {
+  const body = new FormData();
+  body.append('course_id', courseId);
+  body.append('file', file);
+  return apiRequest(path, {
+    method: 'POST',
+    body
+  });
 }
 
-export function uploadLessonMaterial(_file: File): Promise<ApiResponse<{ url: string }>> {
-  return apiRequest('/upload/lesson-material', { method: 'POST' });
+export function uploadCourseThumbnail(file: File, courseId: string) {
+  return uploadFile('/upload/course-thumbnail', file, courseId);
 }
 
-export function uploadVideo(_file: File): Promise<ApiResponse<{ url: string }>> {
-  return apiRequest('/upload/video', { method: 'POST' });
+export function uploadLessonMaterial(file: File, courseId: string) {
+  return uploadFile('/upload/lesson-material', file, courseId);
+}
+
+export function uploadVideo(file: File, courseId: string) {
+  return uploadFile('/upload/video', file, courseId);
 }

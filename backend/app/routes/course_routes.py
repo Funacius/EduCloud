@@ -16,6 +16,18 @@ def list_courses(db: Session = Depends(get_db)):
     return success_response("Courses loaded", [CourseRead.model_validate(course) for course in courses])
 
 
+@router.get("/mine")
+def list_my_courses(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    courses = course_service.list_instructor_courses(db, current_user)
+    return success_response(
+        "Instructor courses loaded",
+        [CourseRead.model_validate(course) for course in courses],
+    )
+
+
 @router.get("/{course_id}")
 def get_course(course_id: int, db: Session = Depends(get_db)):
     course = course_service.get_course(db, course_id)

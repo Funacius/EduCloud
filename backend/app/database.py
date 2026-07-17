@@ -14,7 +14,6 @@ Base = declarative_base()
 
 
 def get_db():
-    # TODO Backend Core Developer: Use this dependency in routes when database logic is implemented.
     db = SessionLocal()
     try:
         yield db

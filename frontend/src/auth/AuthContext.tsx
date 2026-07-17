@@ -1,64 +1,37 @@
-import {
-  createContext,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode
-} from 'react';
-import type { User, UserRole } from '../types/user';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { loginUser, registerUser } from '../services/authService';
+import type { ApiUser, User, UserRole } from '../types/user';
 
-const SESSION_KEY = 'educloud-demo-user';
-const DEMO_PASSWORD = 'Demo123!';
+const SESSION_KEY = 'educloud-auth-session';
 
-const demoAccounts: Array<{ email: string; user: User }> = [
-  {
-    email: 'student@educloud.local',
-    user: {
-      id: 'student-demo',
-      fullName: 'Alex Student',
-      email: 'student@educloud.local',
-      role: 'student'
-    }
-  },
-  {
-    email: 'instructor@educloud.local',
-    user: {
-      id: 'instructor-demo',
-      fullName: 'Morgan Instructor',
-      email: 'instructor@educloud.local',
-      role: 'instructor'
-    }
-  },
-  {
-    email: 'admin@educloud.local',
-    user: {
-      id: 'admin-demo',
-      fullName: 'Taylor Admin',
-      email: 'admin@educloud.local',
-      role: 'admin'
-    }
-  }
-];
-
-type SignInResult = { user: User } | { error: string };
-
+type AuthSession = { user: User; token: string };
+type AuthResult = { user: User } | { error: string };
 type AuthContextValue = {
   currentUser: User | null;
-  signIn: (email: string, password: string) => SignInResult;
-  registerStudent: (fullName: string, email: string) => User;
+  token: string | null;
+  signIn: (email: string, password: string) => Promise<AuthResult>;
+  registerStudent: (fullName: string, email: string, password: string) => Promise<AuthResult>;
   signOut: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readStoredUser(): User | null {
+function mapUser(user: ApiUser): User {
+  return { id: String(user.id), fullName: user.full_name, email: user.email, role: user.role };
+}
+
+function readSession(): AuthSession | null {
   try {
-    const storedUser = sessionStorage.getItem(SESSION_KEY);
-    return storedUser ? (JSON.parse(storedUser) as User) : null;
+    const stored = sessionStorage.getItem(SESSION_KEY);
+    return stored ? JSON.parse(stored) as AuthSession : null;
   } catch {
     sessionStorage.removeItem(SESSION_KEY);
     return null;
   }
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unable to connect to the server.';
 }
 
 export function getRoleHome(role: UserRole): string {
@@ -68,53 +41,42 @@ export function getRoleHome(role: UserRole): string {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User | null>(readStoredUser);
+  const [session, setSession] = useState<AuthSession | null>(readSession);
 
-  const persistUser = (user: User) => {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    setCurrentUser(user);
-  };
+  function persist(next: AuthSession) {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(next));
+    setSession(next);
+  }
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      currentUser,
-      signIn(email, password) {
-        const account = demoAccounts.find(
-          (candidate) => candidate.email === email.trim().toLowerCase()
-        );
-
-        if (!account || password !== DEMO_PASSWORD) {
-          return { error: 'Email or password is incorrect.' };
-        }
-
-        persistUser(account.user);
-        return { user: account.user };
-      },
-      registerStudent(fullName, email) {
-        const user: User = {
-          id: `student-${Date.now()}`,
-          fullName: fullName.trim(),
-          email: email.trim().toLowerCase(),
-          role: 'student'
-        };
-        persistUser(user);
-        return user;
-      },
-      signOut() {
-        sessionStorage.removeItem(SESSION_KEY);
-        setCurrentUser(null);
-      }
-    }),
-    [currentUser]
-  );
+  const value = useMemo<AuthContextValue>(() => ({
+    currentUser: session?.user ?? null,
+    token: session?.token ?? null,
+    async signIn(email, password) {
+      try {
+        const response = await loginUser({ email: email.trim().toLowerCase(), password });
+        if (!response.data) return { error: 'The server returned an empty login response.' };
+        const user = mapUser(response.data.user);
+        persist({ user, token: response.data.token });
+        return { user };
+      } catch (error) { return { error: getErrorMessage(error) }; }
+    },
+    async registerStudent(fullName, email, password) {
+      try {
+        const response = await registerUser({ full_name: fullName.trim(), email: email.trim().toLowerCase(), password });
+        if (!response.data) return { error: 'The server returned an empty registration response.' };
+        const user = mapUser(response.data.user);
+        persist({ user, token: response.data.token });
+        return { user };
+      } catch (error) { return { error: getErrorMessage(error) }; }
+    },
+    signOut() { sessionStorage.removeItem(SESSION_KEY); setSession(null); }
+  }), [session]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used inside AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used inside AuthProvider');
   return context;
 }

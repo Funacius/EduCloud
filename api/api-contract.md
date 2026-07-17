@@ -22,6 +22,8 @@ API Developer - Enrollment, Upload & Testing owns:
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 
+Register creates a `student`. Login returns `data.token` (JWT) and `data.user`.
+
 ### Course
 
 - `GET /api/courses`
@@ -42,10 +44,21 @@ API Developer - Enrollment, Upload & Testing owns:
 - `POST /api/courses/{course_id}/enroll`
 - `GET /api/my-courses`
 
+Both endpoints require a student JWT. `GET /api/my-courses` returns dashboard totals and enrolled-course progress derived from database rows.
+
 ### Progress
 
 - `POST /api/lessons/{lesson_id}/complete`
+- `DELETE /api/lessons/{lesson_id}/complete`
 - `GET /api/courses/{course_id}/progress`
+
+Progress mutations require an enrollment in the lesson's course.
+
+### Admin
+
+- `GET /api/admin/dashboard`
+
+Requires an admin JWT and returns live user, role, course, lesson, and enrollment metrics.
 
 ### Upload
 
