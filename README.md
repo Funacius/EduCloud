@@ -18,7 +18,7 @@ AWS services are optional. Local uploads work without AWS. Password-reset email,
 
 ## Project status snapshot
 
-This section is the current handoff summary for teammates, reviewers, or another ChatGPT conversation.
+This section is the current handoff summary for teammates and reviewers.
 
 ### Architecture
 
@@ -73,44 +73,6 @@ Development compatibility migrations add missing course detail and user auth col
 - Admin has no role editing, account suspension, deletion, or course-review actions.
 - Schema evolution still uses a development compatibility helper instead of Alembic.
 - The checked-in Postman collection began with the legacy development-token flow; replace its token variable with a login JWT when testing protected endpoints.
-
-## Context to paste into ChatGPT
-
-Copy the block below when asking another ChatGPT conversation for help. Add the exact error, file, screenshot, or feature request after it.
-
-```text
-I am working on EduCloud Lite, an LMS prototype.
-
-Stack:
-- Frontend: React 19, TypeScript, Vite, React Router.
-- Backend: FastAPI, SQLAlchemy, Pydantic, psycopg2.
-- Database: Supabase hosted PostgreSQL through DATABASE_URL.
-- Auth: custom FastAPI auth using bcrypt and 12-hour JWTs; this project does not currently use Supabase Auth.
-- Local URLs: frontend http://localhost:5173, backend http://127.0.0.1:8001, API prefix /api.
-
-Implemented:
-- Student/instructor/admin authentication and role guards.
-- Supabase-backed users, courses, lessons, enrollments, and progress.
-- Instructor course/curriculum CRUD and local file uploads.
-- Student enrollment, lesson completion/undo, resume at first incomplete lesson, and live My Learning dashboard.
-- Read-only admin metrics dashboard backed by Supabase.
-- Published course catalog and search.
-- Backend tests and frontend production build currently pass.
-
-Not implemented:
-- Password reset email/token flow.
-- Formal downloadable certificates.
-- Admin mutation actions such as changing roles or suspending users.
-- Production Alembic migrations.
-- Required AWS deployment/service configuration.
-
-Important security constraints:
-- Never request or expose backend/.env, DATABASE_URL, database passwords, JWT_SECRET_KEY, or service-role keys.
-- Public registration must remain student-only.
-- Protected mutations must keep JWT role and ownership checks.
-
-Please inspect the relevant code before proposing changes and keep the README/API contract synchronized when behavior changes.
-```
 
 ## Run locally with Supabase
 
