@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  ClipboardCheck,
   ChevronLeft,
   ChevronRight,
   Circle,
@@ -13,7 +14,7 @@ import {
   Play
 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
-import { getCourseById } from '../services/courseService';
+import { getLearningCourse } from '../services/courseService';
 import { getCourseProgress, setLessonComplete } from '../services/progressService';
 import type { LessonRecord } from '../types/course';
 
@@ -53,11 +54,12 @@ function LearningPage() {
   const [completed, setCompleted] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     let active = true;
     setIsLoading(true);
-    Promise.all([getCourseById(courseId), getCourseProgress(courseId)])
+    Promise.all([getLearningCourse(courseId), getCourseProgress(courseId)])
       .then(([{ data }, progressResponse]) => {
         if (!active || !data) return;
         const sortedLessons = [...data.lessons].sort((a, b) => a.order_index - b.order_index);
@@ -77,6 +79,12 @@ function LearningPage() {
     return () => { active = false; };
   }, [courseId]);
 
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(''), 5000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const lesson = course?.lessons[activeIndex];
   const progress = useMemo(() => course?.lessons.length
     ? Math.round((completed.length / course.lessons.length) * 100)
@@ -85,11 +93,14 @@ function LearningPage() {
   async function toggleComplete() {
     if (!lesson) return;
     const shouldComplete = !completed.includes(lesson.id);
-    await setLessonComplete(lesson.id, shouldComplete);
+    const response = await setLessonComplete(lesson.id, shouldComplete);
     const next = !shouldComplete
       ? completed.filter((id) => id !== lesson.id)
       : [...completed, lesson.id];
     setCompleted(next);
+    if (shouldComplete && next.length === course?.lessons.length) {
+      setNotice('Every lesson is complete. Pass the final assessment to receive your certificate.');
+    }
   }
 
   if (isLoading) return <section className="learning-state">Loading your classroom...</section>;
@@ -97,6 +108,7 @@ function LearningPage() {
 
   return (
     <section className="learning-page">
+      {notice && <div className="learning-certificate-notice"><CheckCircle2 /><span><strong>Final assessment unlocked</strong>{notice}</span><Link to={`/learn/${courseId}/assessment`}>Take final test</Link></div>}
       <header className="learning-topbar">
         <div>
           <Link to="/my-learning" className="learning-back"><ArrowLeft size={16} /> My Learning</Link>
@@ -127,15 +139,16 @@ function LearningPage() {
           {lesson && <>
             <div className="lesson-heading">
               <div><span className="eyebrow">Lesson {activeIndex + 1} of {course.lessons.length}</span><h2>{lesson.title}</h2></div>
-              <button className={completed.includes(lesson.id) ? 'lesson-complete is-complete' : 'lesson-complete'} onClick={toggleComplete} type="button">
+              <button className={completed.includes(lesson.id) ? 'lesson-complete is-complete' : 'lesson-complete'} onClick={toggleComplete} type="button" disabled={progress === 100}>
                 {completed.includes(lesson.id) ? <CheckCircle2 /> : <Circle />}
-                {completed.includes(lesson.id) ? 'Completed' : 'Mark as complete'}
+                {progress === 100 ? 'Course completed' : completed.includes(lesson.id) ? 'Completed' : 'Mark as complete'}
               </button>
             </div>
             <div className="lesson-navigation">
               <button type="button" disabled={activeIndex === 0} onClick={() => setActiveIndex((value) => value - 1)}><ChevronLeft /> Previous</button>
               <button type="button" disabled={activeIndex === course.lessons.length - 1} onClick={() => setActiveIndex((value) => value + 1)}>Next lesson <ChevronRight /></button>
             </div>
+            {progress === 100 && <div className="lesson-assessment-cta"><ClipboardCheck /><span><strong>Lessons completed</strong><small>Pass the timed final assessment to finish this course and earn your certificate.</small></span><Link to={`/learn/${courseId}/assessment`}>Take final test</Link></div>}
             <article className="lesson-notes">
               <h3>About this lesson</h3>
               <p>{lesson.content || 'The instructor has not added lesson notes yet.'}</p>

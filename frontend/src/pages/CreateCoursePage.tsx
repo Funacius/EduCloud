@@ -2,11 +2,12 @@ import { ArrowLeft, ImageIcon, Plus, Save, Trash2, UploadCloud } from 'lucide-re
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../services/apiClient';
-import { createCourse, getCourseById, updateCourse } from '../services/courseService';
+import { createCourse, getManagedCourse, updateCourse } from '../services/courseService';
 import type { CourseCreatePayload } from '../types/course';
 import logoUrl from '../../image/logo.png';
 import CourseCurriculumEditor from '../components/CourseCurriculumEditor';
 import { uploadCourseThumbnail } from '../services/uploadService';
+import AssessmentEditor from '../components/AssessmentEditor';
 
 type CourseField = keyof CourseCreatePayload;
 type CourseFieldErrors = Partial<Record<CourseField, string>>;
@@ -104,7 +105,7 @@ function CreateCoursePage() {
       setIsLoading(true);
       setError('');
       try {
-        const response = await getCourseById(courseId);
+        const response = await getManagedCourse(courseId);
         if (!response.data) throw new Error('The course could not be found.');
         if (!isActive) return;
 
@@ -421,12 +422,13 @@ function CreateCoursePage() {
                 }}
               >
                 <option value="draft">Draft</option>
-                <option value="published">Published</option>
+                <option value="published" disabled={!isEditing}>Published</option>
                 <option value="hidden">Hidden</option>
               </select>
               {fieldErrors.status && (
                 <small className="course-field-error" id="course-status-error">{fieldErrors.status}</small>
               )}
+              {!isEditing && <small>Create the draft first, then add lessons and publish its final assessment.</small>}
             </label>
           </div>
           )}
@@ -469,6 +471,7 @@ function CreateCoursePage() {
       </form>
 
       {courseId && <CourseCurriculumEditor courseId={courseId} />}
+      {courseId && <AssessmentEditor courseId={courseId} />}
     </section>
   );
 }

@@ -168,7 +168,7 @@ function CourseDetailPage() {
         if (!isActive || !response.data) return;
         const record = response.data;
         const lessonCount = record.lessons.length;
-        const videoCount = record.lessons.filter((lesson) => lesson.video_url).length;
+        const videoCount = record.lessons.filter((lesson) => lesson.has_video).length;
         setCourse({
           id: String(record.id),
           title: record.title,

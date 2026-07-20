@@ -44,9 +44,9 @@ function MyLearningPage() {
           <p>Continue with the next available lesson in this course.</p>
           <div className="progress-track"><span style={{ width: `${focus.percentage}%` }} /></div>
           <div className="focus-meta"><span><Clock3 size={16} /> Self-paced</span><span>{focus.completed_lessons} of {focus.total_lessons} lessons</span></div>
-          <Link className="continue-button" to={`/learn/${focus.id}`}><PlayCircle size={18} />Continue course</Link>
+          <Link className="continue-button" to={focus.ready_for_assessment && !focus.assessment_passed ? `/learn/${focus.id}/assessment` : `/learn/${focus.id}`}><PlayCircle size={18} />{focus.ready_for_assessment && !focus.assessment_passed ? 'Take final test' : 'Continue course'}</Link>
         </section>
-        <aside className="achievement-panel"><Award size={30} /><span className="eyebrow">Course completion</span><h2>{dashboard.completed_courses ? 'Achievement unlocked' : 'Keep learning'}</h2><p>{dashboard.completed_courses ? `You have completed ${dashboard.completed_courses} course(s).` : 'Complete every lesson in a course to earn an achievement.'}</p></aside>
+        <aside className="achievement-panel"><Award size={30} /><span className="eyebrow">Certificates</span><h2>{dashboard.completed_courses ? 'Achievement unlocked' : 'Keep learning'}</h2><p>{dashboard.completed_courses ? `You have earned ${dashboard.completed_courses} certificate(s).` : 'Complete every lesson and pass the final assessment to earn a certificate.'}</p><Link className="text-button" to="/profile">View profile & certificates</Link></aside>
       </div>}
 
       <section className="dashboard-section">
@@ -56,7 +56,7 @@ function MyLearningPage() {
             <div className="course-monogram">{course.title.slice(0, 2).toUpperCase()}</div>
             <div className="learning-course-copy"><h3>{course.title}</h3><p>{course.instructor} · {course.completed_lessons} of {course.total_lessons} lessons</p><div className="progress-track"><span style={{ width: `${course.percentage}%` }} /></div></div>
             <strong className="course-progress-number">{course.percentage}%</strong>
-            <Link className="icon-link" to={`/learn/${course.id}`} aria-label={`Open ${course.title}`}><ArrowRight size={20} /></Link>
+            <Link className="icon-link" to={course.ready_for_assessment && !course.assessment_passed ? `/learn/${course.id}/assessment` : `/learn/${course.id}`} aria-label={`Open ${course.title}`}><ArrowRight size={20} /></Link>
           </article>)}
         </div>}
       </section>

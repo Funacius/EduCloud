@@ -1,56 +1,42 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { KeyRound } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { requestPasswordReset } from '../services/authService';
+import { isCognitoConfigured } from '../services/cognitoService';
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 function ForgotPasswordPage() {
-  const [emailError, setEmailError] = useState('');
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  async function requestCode(event: FormEvent) {
     event.preventDefault();
-    if (!isValidEmail(email)) {
-      setEmailError('Please enter a valid email address.');
-      return;
-    }
+    if (!isValidEmail(email)) { setError('Please enter a valid email address.'); return; }
+    if (!isCognitoConfigured) { setError('Cognito password recovery is not configured.'); return; }
+    setError('');
+    setIsSubmitting(true);
+    try {
+      await requestPasswordReset(email);
+      navigate('/forgot-password/code', { state: { email: email.trim().toLowerCase() } });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to request a reset code.');
+    } finally { setIsSubmitting(false); }
+  }
 
-    setEmailError('Password reset email is not configured yet. Contact an administrator for local development access.');
-  };
-
-  const handleEmailChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setEmail(event.target.value);
-    if (emailError === 'Please enter a valid email address.') {
-      setEmailError('');
-    }
-  };
-
-  return (
-    <section className="page auth-page">
-      <div className="auth-card">
-        <h1>Reset your password</h1>
-        <p>Password reset by email is not available in this local development build.</p>
-        <form className="auth-form" onSubmit={handleSubmit} noValidate>
-          <label>
-            <span>Email</span>
-            <input
-              autoComplete="email"
-              placeholder="you@example.com"
-              type="email"
-              value={email}
-              onChange={handleEmailChange}
-              aria-invalid={Boolean(emailError)}
-              aria-describedby={emailError ? 'reset-email-error' : undefined}
-            />
-          </label>
-          {emailError && (
-            <p className="form-error" id="reset-email-error">
-              {emailError}
-            </p>
-          )}
-          <button type="submit">Check reset availability</button>
-        </form>
-      </div>
-    </section>
-  );
+  return <section className="page auth-page"><div className="auth-card">
+    <KeyRound className="auth-feature-icon" />
+    <h1>Forgot your password?</h1>
+    <p>Enter your confirmed EduCloud email and we will send a six-digit reset code.</p>
+    <form className="auth-form" onSubmit={requestCode} noValidate>
+      <label><span>Email</span><input autoComplete="email" type="email" value={email} onChange={(event) => { setEmail(event.target.value); setError(''); }} /></label>
+      {error && <p className="form-error">{error}</p>}
+      <button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Sending code...' : 'Send reset code'}</button>
+      <Link className="auth-link" to="/login">Back to sign in</Link>
+    </form>
+  </div></section>;
 }
 
 export default ForgotPasswordPage;

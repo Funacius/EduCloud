@@ -28,3 +28,9 @@ class Course(Base):
         cascade="all, delete-orphan",
         order_by="Lesson.order_index",
     )
+    assessment = relationship(
+        "CourseAssessment",
+        back_populates="course",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )

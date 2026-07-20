@@ -1,5 +1,10 @@
+import logging
+
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.engine import Engine
+
+logger = logging.getLogger(__name__)
 
 
 def ensure_course_detail_columns(engine: Engine) -> None:
@@ -29,6 +34,26 @@ def ensure_user_auth_columns(engine: Engine) -> None:
     if "users" not in inspector.get_table_names():
         return
     existing = {column["name"] for column in inspector.get_columns("users")}
-    if "password_hash" not in existing:
-        with engine.begin() as connection:
+    with engine.begin() as connection:
+        if "password_hash" not in existing:
             connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
+        if "cognito_sub" not in existing:
+            connection.execute(text("ALTER TABLE users ADD COLUMN cognito_sub VARCHAR(64)"))
+        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_cognito_sub ON users (cognito_sub)"))
+
+
+def ensure_learning_unique_indexes(engine: Engine) -> None:
+    """Protect enrollment/progress idempotency for databases created before model constraints existed."""
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    statements = []
+    if "enrollments" in tables:
+        statements.append("CREATE UNIQUE INDEX IF NOT EXISTS uq_enrollment_user_course ON enrollments (user_id, course_id)")
+    if "progress" in tables:
+        statements.append("CREATE UNIQUE INDEX IF NOT EXISTS uq_progress_user_lesson ON progress (user_id, lesson_id)")
+    for statement in statements:
+        try:
+            with engine.begin() as connection:
+                connection.execute(text(statement))
+        except SQLAlchemyError:
+            logger.warning("Could not create a learning uniqueness index; check the table for duplicate rows", exc_info=True)

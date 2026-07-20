@@ -9,6 +9,9 @@ export type StudentCourseSummary = {
   completed_lessons: number;
   total_lessons: number;
   percentage: number;
+  assessment_required: boolean;
+  assessment_passed: boolean;
+  ready_for_assessment: boolean;
 };
 
 export type StudentDashboard = {

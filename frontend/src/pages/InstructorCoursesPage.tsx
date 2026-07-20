@@ -5,13 +5,15 @@ import {
   EyeOff,
   Pencil,
   Plus,
-  RefreshCw
+  RefreshCw,
+  Trash2,
+  Users
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { getInstructorCourses } from '../services/courseService';
-import type { CourseRecord } from '../types/course';
+import { deleteCourse, getInstructorCourses } from '../services/courseService';
+import type { CourseRecord, InstructorCourseRecord } from '../types/course';
 import logoUrl from '../../image/logo.png';
 
 function formatPrice(price: number) {
@@ -36,12 +38,13 @@ function InstructorCoursesPage() {
   const { currentUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [courses, setCourses] = useState<CourseRecord[]>([]);
+  const [courses, setCourses] = useState<InstructorCourseRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [successMessage, setSuccessMessage] = useState(
     (location.state as { successMessage?: string } | null)?.successMessage ?? ''
   );
+  const [busyCourseId, setBusyCourseId] = useState<number | null>(null);
 
   const loadCourses = useCallback(async () => {
     setIsLoading(true);
@@ -75,6 +78,19 @@ function InstructorCoursesPage() {
     draft: courses.filter((course) => course.status === 'draft').length,
     hidden: courses.filter((course) => ['hidden', 'archived'].includes(course.status)).length
   }), [courses]);
+
+  async function handleDelete(course: InstructorCourseRecord) {
+    if (!window.confirm(`Delete draft course "${course.title}"? This cannot be undone.`)) return;
+    setBusyCourseId(course.id);
+    setLoadError('');
+    try {
+      await deleteCourse(String(course.id));
+      setCourses((current) => current.filter((item) => item.id !== course.id));
+      setSuccessMessage(`'${course.title}' was deleted.`);
+    } catch (caught) {
+      setLoadError(caught instanceof Error ? caught.message : 'Unable to delete this course.');
+    } finally { setBusyCourseId(null); }
+  }
 
   return (
     <section className="dashboard-page">
@@ -148,7 +164,7 @@ function InstructorCoursesPage() {
         <div className="dashboard-table-shell">
           <table className="dashboard-table">
             <thead>
-              <tr><th>Course</th><th>Status</th><th>Price</th><th>Updated</th><th><span className="sr-only">Actions</span></th></tr>
+              <tr><th>Course</th><th>Status</th><th>Students</th><th>Completed</th><th>Price</th><th>Updated</th><th><span className="sr-only">Actions</span></th></tr>
             </thead>
             <tbody>
               {courses.map((course) => (
@@ -169,13 +185,12 @@ function InstructorCoursesPage() {
                     </div>
                   </td>
                   <td><span className={`status-pill status-${course.status === 'archived' ? 'hidden' : course.status}`}>{formatStatus(course.status)}</span></td>
+                  <td><span className="student-count"><Users size={15} />{course.enrolled_students}</span></td>
+                  <td><span className="student-count student-count-complete"><CheckCircle2 size={15} />{course.completed_students}</span></td>
                   <td>{formatPrice(Number(course.price))}</td>
                   <td>{formatUpdatedDate(course.updated_at)}</td>
                   <td>
-                    <Link className="course-edit-action" to={`/instructor/courses/${course.id}/edit`}>
-                      <Pencil size={16} />
-                      Edit
-                    </Link>
+                    <div className="course-row-actions"><Link className="course-edit-action" to={`/instructor/courses/${course.id}/edit`}><Pencil size={16} />Edit</Link>{course.status === 'draft' && <button className="course-delete-action" type="button" disabled={busyCourseId === course.id} onClick={() => void handleDelete(course)}><Trash2 size={16} />Delete</button>}</div>
                   </td>
                 </tr>
               ))}

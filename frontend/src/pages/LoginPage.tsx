@@ -1,17 +1,25 @@
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { getRoleHome, useAuth } from '../auth/AuthContext';
 
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 function LoginPage() {
+  const location = useLocation();
+  const routeState = (location.state as { from?: string; email?: string; emailConfirmed?: boolean; passwordReset?: boolean; applyAsInstructor?: boolean } | null) ?? {};
   const [authError, setAuthError] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(routeState.email ?? '');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(Boolean(routeState.emailConfirmed || routeState.passwordReset));
   const { currentUser, signIn } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+
+  useEffect(() => {
+    if (!showSuccess) return;
+    const timer = window.setTimeout(() => setShowSuccess(false), 3800);
+    return () => window.clearTimeout(timer);
+  }, [showSuccess]);
 
   if (currentUser) {
     return <Navigate to={getRoleHome(currentUser.role)} replace />;
@@ -32,8 +40,11 @@ function LoginPage() {
       return;
     }
 
-    const requestedPath = (location.state as { from?: string } | null)?.from;
-    navigate(requestedPath || getRoleHome(result.user.role), { replace: true });
+    if (routeState.applyAsInstructor && result.user.role === 'student') {
+      navigate('/profile?apply=instructor', { replace: true });
+      return;
+    }
+    navigate(routeState.from || getRoleHome(result.user.role), { replace: true });
   };
 
   const handleEmailChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -48,6 +59,8 @@ function LoginPage() {
       <div className="auth-card">
         <h1>Sign in to EduCloud Lite</h1>
         <p>Continue learning and manage your enrolled courses.</p>
+        {showSuccess && routeState.emailConfirmed && <p className="auth-success auth-success-auto-hide" role="status">Email confirmed. Sign in to continue.</p>}
+        {showSuccess && routeState.passwordReset && <p className="auth-success auth-success-auto-hide" role="status">Password updated. Sign in with your new password.</p>}
         <form className="auth-form" onSubmit={handleSubmit} noValidate>
           <label>
             <span>Email</span>

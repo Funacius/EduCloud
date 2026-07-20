@@ -27,3 +27,12 @@ class LessonRead(BaseModel):
     video_url: str | None = None
     material_url: str | None = None
     order_index: int
+
+
+class LessonOutlineRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    order_index: int
+    has_video: bool = False

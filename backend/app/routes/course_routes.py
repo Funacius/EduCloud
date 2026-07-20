@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.middleware.auth_middleware import get_current_user
-from app.schemas.course_schema import CourseCreate, CourseDetail, CourseRead, CourseUpdate
+from app.schemas.course_schema import CourseCreate, CourseDetail, CoursePublicDetail, CourseRead, CourseUpdate, InstructorCourseRead
 from app.services import course_service
 from app.utils.response import success_response
 
@@ -21,17 +21,29 @@ def list_my_courses(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    courses = course_service.list_instructor_courses(db, current_user)
+    courses = course_service.list_instructor_course_summaries(db, current_user)
     return success_response(
         "Instructor courses loaded",
-        [CourseRead.model_validate(course) for course in courses],
+        [InstructorCourseRead.model_validate(course) for course in courses],
     )
+
+
+@router.get("/{course_id}/manage")
+def get_managed_course(course_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    course = course_service.get_managed_course(db, course_id, current_user)
+    return success_response("Course loaded", CourseDetail.model_validate(course))
+
+
+@router.get("/{course_id}/learning")
+def get_learning_course(course_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    course = course_service.get_learning_course(db, course_id, current_user)
+    return success_response("Learning content loaded", CourseDetail.model_validate(course))
 
 
 @router.get("/{course_id}")
 def get_course(course_id: int, db: Session = Depends(get_db)):
-    course = course_service.get_course(db, course_id)
-    return success_response("Course loaded", CourseDetail.model_validate(course))
+    course = course_service.get_public_course(db, course_id)
+    return success_response("Course loaded", CoursePublicDetail.model_validate(course))
 
 
 @router.post("")

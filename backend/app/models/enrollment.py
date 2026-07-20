@@ -1,11 +1,11 @@
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Column, ForeignKey, Integer, String, UniqueConstraint
 
 from app.database import Base
 
 
 class Enrollment(Base):
-    # TODO Backend Business Logic Developer: Add unique enrollment constraint and timestamps.
     __tablename__ = "enrollments"
+    __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_enrollment_user_course"),)
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

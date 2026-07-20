@@ -23,7 +23,9 @@ def register_user(db: Session, payload: UserCreate) -> User:
 
 def login_user(db: Session, payload: LoginRequest) -> dict:
     user = db.query(User).filter(User.email == _normalized_email(str(payload.email))).first()
-    if user is None or not user.password_hash or not verify_password(payload.password, user.password_hash):
+    # A Cognito-linked identity must always authenticate through Cognito. This
+    # prevents the development fallback from bypassing its current password.
+    if user is None or user.cognito_sub or not user.password_hash or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email or password is incorrect")
     return {"token": create_access_token(user.id, user.role), "user": user}
 

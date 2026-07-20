@@ -28,3 +28,11 @@ class LoginRequest(BaseModel):
 class AuthResult(BaseModel):
     token: str
     user: UserRead
+
+
+class CognitoExchangeRequest(BaseModel):
+    id_token: str = Field(min_length=100)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(pattern=EMAIL_PATTERN, max_length=254)

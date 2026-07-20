@@ -1,3 +1,4 @@
+import { GraduationCap, Presentation } from 'lucide-react';
 import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { getRoleHome, useAuth } from '../auth/AuthContext';
@@ -5,6 +6,7 @@ import { getRoleHome, useAuth } from '../auth/AuthContext';
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 function RegisterPage() {
+  const [accountType, setAccountType] = useState<'student' | 'instructor'>('student');
   const [form, setForm] = useState({
     certificateName: '',
     email: '',
@@ -53,20 +55,38 @@ function RegisterPage() {
       setFormError(result.error);
       return;
     }
-    navigate(getRoleHome(result.user.role), { replace: true });
+    if ('requiresConfirmation' in result) {
+      navigate('/verify-email', {
+        replace: true,
+        state: { email: result.email, applyAsInstructor: accountType === 'instructor' }
+      });
+      return;
+    }
+    navigate(accountType === 'instructor' ? '/profile?apply=instructor' : '/profile', { replace: true });
   };
 
   return (
     <section className="page auth-page">
-      <div className="auth-card">
+      <div className="auth-card register-card">
         <h1>Create your EduCloud Lite account</h1>
-        <p>Start learning with a Student account. Instructor access is assigned by an Admin.</p>
+        <p>Choose how you want to use EduCloud. Instructor applications require Admin approval.</p>
         <form className="auth-form" noValidate onSubmit={handleSubmit}>
+          <fieldset className="signup-role-picker">
+            <legend>I want to join as</legend>
+            <div>
+              <button className={accountType === 'student' ? 'signup-role-option is-selected' : 'signup-role-option'} type="button" aria-pressed={accountType === 'student'} onClick={() => setAccountType('student')}>
+                <GraduationCap /><span><strong>Student</strong><small>Enroll in courses and earn certificates</small></span>
+              </button>
+              <button className={accountType === 'instructor' ? 'signup-role-option is-selected' : 'signup-role-option'} type="button" aria-pressed={accountType === 'instructor'} onClick={() => setAccountType('instructor')}>
+                <Presentation /><span><strong>Instructor</strong><small>Apply to create and publish courses</small></span>
+              </button>
+            </div>
+          </fieldset>
           <label>
-            <span>Name on certificate</span>
+            <span>{accountType === 'instructor' ? 'Full name' : 'Name on certificate'}</span>
             <input
               autoComplete="name"
-              placeholder="Enter your full name"
+              placeholder={accountType === 'instructor' ? 'Enter your full name' : 'Enter the name to print on certificates'}
               value={form.certificateName}
               onChange={handleChange('certificateName')}
             />
@@ -117,7 +137,7 @@ function RegisterPage() {
           )}
           {formError && <p className="form-error">{formError}</p>}
           <button type="submit" disabled={passwordsDoNotMatch || emailIsInvalid || isSubmitting}>
-            {isSubmitting ? 'Creating account...' : 'Create account'}
+            {isSubmitting ? 'Creating account...' : accountType === 'instructor' ? 'Continue as Instructor applicant' : 'Create Student account'}
           </button>
         </form>
       </div>

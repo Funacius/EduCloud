@@ -59,7 +59,8 @@ function Navbar() {
     ? currentUser.role === 'student'
       ? [
           { to: '/courses', label: 'Courses' },
-          { to: '/my-learning', label: 'My Learning' }
+          { to: '/my-learning', label: 'My Learning' },
+          { to: '/profile', label: 'Profile' }
         ]
       : currentUser.role === 'instructor'
         ? [
@@ -68,6 +69,7 @@ function Navbar() {
           ]
         : [
             { to: '/admin', label: 'Admin' },
+            { to: '/admin/health', label: 'Health' },
             { to: '/courses', label: 'Courses' }
           ]
     : [{ to: '/courses', label: 'Courses' }];

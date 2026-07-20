@@ -10,6 +10,7 @@ ACCOUNTS = (
     (900000, "Alex Student", "student@educloud.local", "student"),
     (900001, "Morgan Instructor", "instructor@educloud.local", "instructor"),
     (900002, "Taylor Admin", "admin@educloud.local", "admin"),
+    (900003, "EduCloud Backup Admin", "admin2@educloud.local", "admin"),
 )
 
 

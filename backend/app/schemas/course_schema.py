@@ -3,7 +3,7 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.lesson_schema import LessonRead
+from app.schemas.lesson_schema import LessonOutlineRead, LessonRead
 
 
 class CourseStatus(str, Enum):
@@ -57,3 +57,12 @@ class CourseRead(BaseModel):
 
 class CourseDetail(CourseRead):
     lessons: list[LessonRead] = []
+
+
+class CoursePublicDetail(CourseRead):
+    lessons: list[LessonOutlineRead] = []
+
+
+class InstructorCourseRead(CourseRead):
+    enrolled_students: int = 0
+    completed_students: int = 0

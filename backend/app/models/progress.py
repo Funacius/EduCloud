@@ -1,11 +1,11 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, UniqueConstraint
 
 from app.database import Base
 
 
 class Progress(Base):
-    # TODO Backend Business Logic Developer: Track completed lessons and calculate course progress.
     __tablename__ = "progress"
+    __table_args__ = (UniqueConstraint("user_id", "lesson_id", name="uq_progress_user_lesson"),)
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

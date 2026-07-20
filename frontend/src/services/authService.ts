@@ -16,6 +16,20 @@ export function loginUser(payload: { email: string; password: string }): Promise
   });
 }
 
+export function exchangeCognitoToken(idToken: string): Promise<ApiResponse<AuthResult>> {
+  return apiRequest('/auth/cognito/exchange', {
+    method: 'POST',
+    body: JSON.stringify({ id_token: idToken })
+  });
+}
+
+export function requestPasswordReset(email: string): Promise<ApiResponse<{ accepted: boolean }>> {
+  return apiRequest('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email: email.trim().toLowerCase() })
+  });
+}
+
 export function getCurrentUser(token: string): Promise<ApiResponse<ApiUser>> {
   return apiRequest('/auth/me', { headers: { Authorization: `Bearer ${token}` } });
 }

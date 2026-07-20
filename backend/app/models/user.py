@@ -11,3 +11,4 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     role = Column(String, default="student")
     password_hash = Column(String, nullable=True)
+    cognito_sub = Column(String(64), unique=True, index=True, nullable=True)

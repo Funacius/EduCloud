@@ -9,10 +9,18 @@ export type CourseProgress = {
   completed_lesson_ids: number[];
 };
 
+export type LessonCompletionResult = {
+  lesson_id: number;
+  course_id: number;
+  is_completed: boolean;
+  certificate_issued: boolean;
+  certificate_code: string | null;
+};
+
 export function getCourseProgress(courseId: string): Promise<ApiResponse<CourseProgress>> {
   return apiRequest(`/courses/${courseId}/progress`);
 }
 
-export function setLessonComplete(lessonId: number, completed: boolean): Promise<ApiResponse<unknown>> {
+export function setLessonComplete(lessonId: number, completed: boolean): Promise<ApiResponse<LessonCompletionResult>> {
   return apiRequest(`/lessons/${lessonId}/complete`, { method: completed ? 'POST' : 'DELETE' });
 }

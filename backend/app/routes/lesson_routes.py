@@ -5,13 +5,16 @@ from app.database import get_db
 from app.middleware.auth_middleware import get_current_user
 from app.schemas.lesson_schema import LessonCreate, LessonRead, LessonUpdate
 from app.services import lesson_service
+from app.services.course_service import get_course
+from app.utils.authorization import require_course_owner_or_admin
 from app.utils.response import success_response
 
 router = APIRouter(tags=["Lessons"])
 
 
 @router.get("/courses/{course_id}/lessons")
-def list_lessons(course_id: int, db: Session = Depends(get_db)):
+def list_lessons(course_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    require_course_owner_or_admin(get_course(db, course_id), current_user)
     lessons = lesson_service.list_lessons(db, course_id)
     return success_response("Lessons loaded", [LessonRead.model_validate(lesson) for lesson in lessons])
 

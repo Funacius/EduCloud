@@ -9,7 +9,7 @@ from app import models  # noqa: F401
 from app.config import settings
 from app.database import Base, get_db
 from app.middleware.auth_middleware import get_current_user
-from app.routes import course_routes, lesson_routes, upload_routes
+from app.routes import assessment_routes, course_routes, lesson_routes, upload_routes
 
 
 engine = create_engine(
@@ -30,6 +30,7 @@ def app():
     test_app.include_router(course_routes.router, prefix="/api")
     test_app.include_router(lesson_routes.router, prefix="/api")
     test_app.include_router(upload_routes.router, prefix="/api")
+    test_app.include_router(assessment_routes.router, prefix="/api")
 
     def override_db():
         yield db
@@ -61,7 +62,7 @@ def create_course(client: TestClient) -> int:
             "learning_outcomes": ["Identify core AWS services"],
             "requirements": ["A computer with internet access"],
             "price": 0,
-            "status": "published",
+            "status": "draft",
         },
     )
 
@@ -72,9 +73,8 @@ def create_course(client: TestClient) -> int:
 def test_course_and_lesson_crud(client: TestClient):
     course_id = create_course(client)
 
-    list_response = client.get("/api/courses")
-    assert list_response.status_code == 200
-    assert len(list_response.json()["data"]) == 1
+    assert client.get("/api/courses").json()["data"] == []
+    assert client.get(f"/api/courses/{course_id}").status_code == 404
 
     lesson_response = client.post(
         f"/api/courses/{course_id}/lessons",
@@ -83,11 +83,40 @@ def test_course_and_lesson_crud(client: TestClient):
     assert lesson_response.status_code == 200
     lesson_id = lesson_response.json()["data"]["id"]
 
-    detail_response = client.get(f"/api/courses/{course_id}")
+    detail_response = client.get(f"/api/courses/{course_id}/manage")
     assert detail_response.status_code == 200
     assert detail_response.json()["data"]["lessons"][0]["id"] == lesson_id
     assert detail_response.json()["data"]["level"] == "Beginner"
     assert detail_response.json()["data"]["learning_outcomes"] == ["Identify core AWS services"]
+
+    assessment_response = client.put(
+        f"/api/instructor/courses/{course_id}/assessment",
+        json={
+            "title": "Final knowledge check",
+            "time_limit_minutes": 15,
+            "passing_score": 70,
+            "max_attempts": 3,
+            "is_published": True,
+            "questions": [{
+                "prompt": "Which service stores objects?",
+                "options": ["Amazon S3", "Amazon EC2"],
+                "correct_option_index": 0,
+                "order_index": 0,
+            }],
+        },
+    )
+    assert assessment_response.status_code == 200
+
+    publish_response = client.put(f"/api/courses/{course_id}", json={"status": "published"})
+    assert publish_response.status_code == 200
+    assert len(client.get("/api/courses").json()["data"]) == 1
+    public_detail = client.get(f"/api/courses/{course_id}").json()["data"]
+    assert public_detail["lessons"][0] == {
+        "id": lesson_id,
+        "title": "Introduction",
+        "order_index": 0,
+        "has_video": False,
+    }
 
     update_lesson_response = client.put(
         f"/api/lessons/{lesson_id}",
@@ -185,3 +214,15 @@ def test_student_cannot_create_course(app):
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Instructor role required"
+
+
+def test_student_cannot_read_instructor_lesson_endpoint(app):
+    with TestClient(app) as instructor_client:
+        course_id = create_course(instructor_client)
+        instructor_client.post(f"/api/courses/{course_id}/lessons", json={"title": "Private lesson", "order_index": 0})
+
+    app.dependency_overrides[get_current_user] = lambda: {"user_id": 2, "role": "student"}
+    with TestClient(app) as student_client:
+        response = student_client.get(f"/api/courses/{course_id}/lessons")
+
+    assert response.status_code == 403

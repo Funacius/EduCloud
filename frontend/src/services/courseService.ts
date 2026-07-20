@@ -2,7 +2,9 @@ import { apiRequest } from './apiClient';
 import type { ApiResponse } from '../types/api';
 import type {
   CourseCreatePayload,
-  CourseDetailRecord,
+  ManagedCourseDetailRecord,
+  PublicCourseDetailRecord,
+  InstructorCourseRecord,
   CourseRecord,
   CourseUpdatePayload
 } from '../types/course';
@@ -11,11 +13,23 @@ export function getCourses(): Promise<ApiResponse<CourseRecord[]>> {
   return apiRequest('/courses');
 }
 
-export function getCourseById(courseId: string): Promise<ApiResponse<CourseDetailRecord>> {
+export function getCourseById(courseId: string): Promise<ApiResponse<PublicCourseDetailRecord>> {
   return apiRequest(`/courses/${courseId}`);
 }
 
-export function getInstructorCourses(): Promise<ApiResponse<CourseRecord[]>> {
+export function getManagedCourse(courseId: string): Promise<ApiResponse<ManagedCourseDetailRecord>> {
+  return apiRequest(`/courses/${courseId}/manage`);
+}
+
+export function getLearningCourse(courseId: string): Promise<ApiResponse<ManagedCourseDetailRecord>> {
+  return apiRequest(`/courses/${courseId}/learning`);
+}
+
+export function deleteCourse(courseId: string): Promise<ApiResponse<{ id: number }>> {
+  return apiRequest(`/courses/${courseId}`, { method: 'DELETE' });
+}
+
+export function getInstructorCourses(): Promise<ApiResponse<InstructorCourseRecord[]>> {
   return apiRequest('/courses/mine');
 }
 

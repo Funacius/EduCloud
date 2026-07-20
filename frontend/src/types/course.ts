@@ -28,6 +28,11 @@ export type CourseRecord = {
   updated_at: string;
 };
 
+export type InstructorCourseRecord = CourseRecord & {
+  enrolled_students: number;
+  completed_students: number;
+};
+
 export type LessonRecord = {
   id: number;
   course_id: number;
@@ -36,6 +41,13 @@ export type LessonRecord = {
   video_url: string | null;
   material_url: string | null;
   order_index: number;
+};
+
+export type LessonOutlineRecord = {
+  id: number;
+  title: string;
+  order_index: number;
+  has_video: boolean;
 };
 
 export type LessonPayload = {
@@ -48,8 +60,12 @@ export type LessonPayload = {
 
 export type LessonUpdatePayload = Partial<LessonPayload>;
 
-export type CourseDetailRecord = CourseRecord & {
+export type ManagedCourseDetailRecord = CourseRecord & {
   lessons: LessonRecord[];
+};
+
+export type PublicCourseDetailRecord = CourseRecord & {
+  lessons: LessonOutlineRecord[];
 };
 
 export type CourseCreatePayload = {
