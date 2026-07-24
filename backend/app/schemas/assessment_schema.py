@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -6,8 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class AssessmentQuestionWrite(BaseModel):
     id: int | None = None
     prompt: str = Field(min_length=3, max_length=1000)
-    options: list[str] = Field(min_length=2, max_length=6)
-    correct_option_index: int = Field(ge=0)
+    options: list[str] = Field(min_length=2, max_length=12)
+    correct_option_index: int | None = Field(default=None, ge=0)
+    correct_option_indices: list[int] = Field(default_factory=list)
+    answer_mode: Literal["all", "any"] = "all"
     explanation: str | None = Field(default=None, max_length=2000)
     order_index: int = Field(default=0, ge=0)
 
@@ -16,9 +19,17 @@ class AssessmentQuestionWrite(BaseModel):
         cleaned = [option.strip() for option in self.options]
         if any(not option for option in cleaned):
             raise ValueError("Question options cannot be empty")
-        if self.correct_option_index >= len(cleaned):
-            raise ValueError("Correct option index is outside the options list")
+        correct_indices = self.correct_option_indices
+        if not correct_indices and self.correct_option_index is not None:
+            correct_indices = [self.correct_option_index]
+        correct_indices = sorted(set(correct_indices))
+        if not correct_indices:
+            raise ValueError("Select at least one correct option")
+        if any(index < 0 or index >= len(cleaned) for index in correct_indices):
+            raise ValueError("A correct option index is outside the options list")
         self.options = cleaned
+        self.correct_option_indices = correct_indices
+        self.correct_option_index = correct_indices[0]
         return self
 
 
@@ -60,6 +71,8 @@ class AssessmentQuestionStudentRead(BaseModel):
     id: int
     prompt: str
     options: list[str]
+    answer_mode: Literal["all", "any"]
+    allows_multiple: bool
     order_index: int
 
 
@@ -90,7 +103,19 @@ class AssessmentStartRead(BaseModel):
 
 class AssessmentAnswer(BaseModel):
     question_id: int
-    selected_option_index: int = Field(ge=0)
+    selected_option_index: int | None = Field(default=None, ge=0)
+    selected_option_indices: list[int] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def normalize_selected_options(self):
+        selected = self.selected_option_indices
+        if not selected and self.selected_option_index is not None:
+            selected = [self.selected_option_index]
+        if any(index < 0 for index in selected):
+            raise ValueError("Selected option indices must be non-negative")
+        self.selected_option_indices = sorted(set(selected))
+        self.selected_option_index = self.selected_option_indices[0] if self.selected_option_indices else None
+        return self
 
 
 class AssessmentSubmit(BaseModel):

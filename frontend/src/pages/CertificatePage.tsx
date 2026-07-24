@@ -32,7 +32,14 @@ function CertificatePage() {
       <div className="certificate-corner certificate-corner-top" />
       <div className="certificate-corner certificate-corner-bottom" />
       <div className="certificate-inner-border">
-        <header className="certificate-brand"><img src={logoUrl} alt="EduCloud Lite logo" /><span><strong>EduCloud Lite</strong><small>Cloud Learning Platform</small></span></header>
+        <div className="certificate-brand certificate-brand-left">
+          <img src={logoUrl} alt="AWS First Cloud Journey" />
+          <span><strong>EduCloud Lite</strong><small>Cloud Learning Platform</small></span>
+        </div>
+        <div className="certificate-brand certificate-brand-right" aria-hidden="true">
+          <img src={logoUrl} alt="" />
+          <span><strong>EduCloud Lite</strong><small>Cloud Learning Platform</small></span>
+        </div>
         <div className="certificate-award-mark"><Award /></div>
         <span className="certificate-kicker">Certificate of Completion</span>
         <h1>This certificate is proudly presented to</h1>

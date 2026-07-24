@@ -73,6 +73,7 @@ function CourseCard({ course }: CourseCardProps) {
         </div>
         <div className="course-thumb" aria-hidden="true">
           <img
+            className={course.thumbnailUrl ? 'has-course-thumbnail' : undefined}
             src={course.thumbnailUrl ?? logoUrl}
             alt=""
             onError={(event) => {

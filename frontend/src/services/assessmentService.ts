@@ -5,7 +5,9 @@ export type AssessmentQuestionEditor = {
   id?: number;
   prompt: string;
   options: string[];
-  correct_option_index: number;
+  correct_option_index: number | null;
+  correct_option_indices: number[];
+  answer_mode: 'all' | 'any';
   explanation: string | null;
   order_index: number;
 };
@@ -26,6 +28,8 @@ export type StudentAssessmentQuestion = {
   id: number;
   prompt: string;
   options: string[];
+  answer_mode: 'all' | 'any';
+  allows_multiple: boolean;
   order_index: number;
 };
 
@@ -78,15 +82,15 @@ export function startStudentAssessment(courseId: string): Promise<ApiResponse<As
 export function submitStudentAssessment(
   courseId: string,
   attemptId: number,
-  answers: Record<number, number>
+  answers: Record<number, number[]>
 ): Promise<ApiResponse<AssessmentResult>> {
   return apiRequest(`/courses/${courseId}/assessment/submit`, {
     method: 'POST',
     body: JSON.stringify({
       attempt_id: attemptId,
-      answers: Object.entries(answers).map(([questionId, selectedOptionIndex]) => ({
+      answers: Object.entries(answers).map(([questionId, selectedOptionIndices]) => ({
         question_id: Number(questionId),
-        selected_option_index: selectedOptionIndex
+        selected_option_indices: selectedOptionIndices
       }))
     })
   });

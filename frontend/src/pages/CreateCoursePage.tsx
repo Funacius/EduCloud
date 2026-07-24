@@ -1,4 +1,4 @@
-import { ArrowLeft, ImageIcon, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
+import { ArrowLeft, BookOpen, ClipboardCheck, Pencil, Plus, Save, Trash2, UploadCloud } from 'lucide-react';
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '../services/apiClient';
@@ -6,8 +6,9 @@ import { createCourse, getManagedCourse, updateCourse } from '../services/course
 import type { CourseCreatePayload } from '../types/course';
 import logoUrl from '../../image/logo.png';
 import CourseCurriculumEditor from '../components/CourseCurriculumEditor';
-import { uploadCourseThumbnail } from '../services/uploadService';
+import { importCourseThumbnail, uploadCourseThumbnail } from '../services/uploadService';
 import AssessmentEditor from '../components/AssessmentEditor';
+import ThumbnailCropEditor from '../components/ThumbnailCropEditor';
 
 type CourseField = keyof CourseCreatePayload;
 type CourseFieldErrors = Partial<Record<CourseField, string>>;
@@ -95,6 +96,10 @@ function CreateCoursePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [thumbnailNotice, setThumbnailNotice] = useState('');
+  const [pendingThumbnailFile, setPendingThumbnailFile] = useState<File | null>(null);
+  const [pendingThumbnailPreview, setPendingThumbnailPreview] = useState('');
+  const [thumbnailCropSource, setThumbnailCropSource] = useState('');
+  const [ownedCropSource, setOwnedCropSource] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -142,10 +147,55 @@ function CreateCoursePage() {
     return () => window.clearTimeout(timer);
   }, [thumbnailNotice]);
 
-  const handleThumbnailUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    return () => {
+      if (pendingThumbnailPreview) URL.revokeObjectURL(pendingThumbnailPreview);
+    };
+  }, [pendingThumbnailPreview]);
+
+  useEffect(() => {
+    return () => {
+      if (ownedCropSource) URL.revokeObjectURL(ownedCropSource);
+    };
+  }, [ownedCropSource]);
+
+  const closeThumbnailCrop = () => {
+    setThumbnailCropSource('');
+    setOwnedCropSource('');
+  };
+
+  const handleThumbnailSelection = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || !courseId) return;
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Choose a JPG, PNG, or WebP image.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('The thumbnail image must be 10 MB or smaller.');
+      return;
+    }
+
+    const source = URL.createObjectURL(file);
+    setOwnedCropSource(source);
+    setThumbnailCropSource(source);
+    setError('');
+    setThumbnailNotice('');
+  };
+
+  const handleCroppedThumbnail = async (file: File) => {
+    closeThumbnailCrop();
+
+    if (!courseId) {
+      setPendingThumbnailFile(file);
+      setPendingThumbnailPreview(URL.createObjectURL(file));
+      setForm((current) => ({ ...current, thumbnail_url: '' }));
+      setFieldErrors((current) => ({ ...current, thumbnail_url: undefined }));
+      setThumbnailNotice('Thumbnail edited. It will be uploaded after the draft is created.');
+      return;
+    }
 
     setIsUploadingThumbnail(true);
     setError('');
@@ -154,9 +204,39 @@ function CreateCoursePage() {
       const response = await uploadCourseThumbnail(file, courseId);
       if (!response.data) throw new Error('The upload API did not return an image URL.');
       setForm((current) => ({ ...current, thumbnail_url: response.data?.url ?? '' }));
-      setThumbnailNotice('Thumbnail uploaded. Save changes to apply it to the course.');
+      setThumbnailNotice('Edited thumbnail uploaded. Save changes to apply it to the course.');
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Unable to upload the thumbnail.');
+    } finally {
+      setIsUploadingThumbnail(false);
+    }
+  };
+
+  const handleEditThumbnail = async () => {
+    const source = pendingThumbnailPreview || form.thumbnail_url || '';
+    if (!source) return;
+
+    if (source.startsWith('blob:') || !courseId) {
+      setThumbnailCropSource(source);
+      return;
+    }
+
+    setIsUploadingThumbnail(true);
+    setError('');
+    setThumbnailNotice('Preparing the image for editing...');
+    try {
+      const response = await importCourseThumbnail(source, courseId);
+      if (!response.data?.url) {
+        throw new Error('The import API did not return an image URL.');
+      }
+      setThumbnailCropSource(`${response.data.url}?crop=${Date.now()}`);
+      setThumbnailNotice('Image imported securely. Adjust its crop and apply the thumbnail.');
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Unable to prepare the thumbnail for editing.'
+      );
     } finally {
       setIsUploadingThumbnail(false);
     }
@@ -202,7 +282,8 @@ function CreateCoursePage() {
         category: form.category.trim(),
         learning_outcomes: form.learning_outcomes.map((item) => item.trim()).filter(Boolean),
         requirements: form.requirements.map((item) => item.trim()).filter(Boolean),
-        thumbnail_url: form.thumbnail_url?.trim() || undefined
+        thumbnail_url: form.thumbnail_url?.trim() || undefined,
+        status: courseId ? form.status : 'draft'
       };
       const response = courseId
         ? await updateCourse(courseId, payload)
@@ -210,6 +291,33 @@ function CreateCoursePage() {
 
       if (!response.data) {
         throw new Error('The API did not return the created course.');
+      }
+
+      if (!courseId) {
+        const createdCourseId = String(response.data.id);
+        let thumbnailWarning = '';
+
+        if (pendingThumbnailFile) {
+          try {
+            const uploadResponse = await uploadCourseThumbnail(pendingThumbnailFile, createdCourseId);
+            if (!uploadResponse.data?.url) {
+              throw new Error('The upload API did not return an image URL.');
+            }
+            await updateCourse(createdCourseId, { thumbnail_url: uploadResponse.data.url });
+          } catch (uploadError) {
+            thumbnailWarning = uploadError instanceof Error
+              ? ` The draft was created, but its thumbnail could not be uploaded: ${uploadError.message}`
+              : ' The draft was created, but its thumbnail could not be uploaded.';
+          }
+        }
+
+        navigate(`/instructor/courses/${createdCourseId}/edit`, {
+          replace: true,
+          state: {
+            successMessage: `'${response.data.title}' was created as a draft. Add lessons and a final assessment below.${thumbnailWarning}`
+          }
+        });
+        return;
       }
 
       navigate('/instructor/courses', {
@@ -262,7 +370,7 @@ function CreateCoursePage() {
 
           {isLoading ? <div className="course-editor-loading">Loading course...</div> : (
           <div className="course-editor-fields">
-            <label className="course-editor-field course-editor-field-wide">
+            <div className="course-editor-field course-editor-field-wide">
               <span>Course title *</span>
               <input
                 autoFocus={!isEditing}
@@ -280,7 +388,7 @@ function CreateCoursePage() {
               {fieldErrors.title && (
                 <small className="course-field-error" id="course-title-error">{fieldErrors.title}</small>
               )}
-            </label>
+            </div>
 
             <label className="course-editor-field course-editor-field-wide">
               <span>Description</span>
@@ -343,6 +451,8 @@ function CreateCoursePage() {
                 aria-describedby={fieldErrors.thumbnail_url ? 'course-thumbnail-error' : 'course-thumbnail-help'}
                 onChange={(event) => {
                   setForm((current) => ({ ...current, thumbnail_url: event.target.value }));
+                  setPendingThumbnailFile(null);
+                  setPendingThumbnailPreview('');
                   setError('');
                   setFieldErrors((current) => ({ ...current, thumbnail_url: undefined }));
                 }}
@@ -354,35 +464,46 @@ function CreateCoursePage() {
               )}
               <div className="course-thumbnail-preview">
                 <img
-                  key={form.thumbnail_url || 'default-thumbnail'}
-                  src={form.thumbnail_url || logoUrl}
+                  className={pendingThumbnailPreview || form.thumbnail_url ? 'has-course-thumbnail' : undefined}
+                  key={pendingThumbnailPreview || form.thumbnail_url || 'default-thumbnail'}
+                  src={pendingThumbnailPreview || form.thumbnail_url || logoUrl}
                   alt="Course thumbnail preview"
                   onError={(event) => {
                     event.currentTarget.src = logoUrl;
                   }}
                 />
-                <span>{form.thumbnail_url ? 'Thumbnail preview' : 'Default EduCloud thumbnail'}</span>
+                <span>
+                  {pendingThumbnailFile
+                    ? `Selected: ${pendingThumbnailFile.name}`
+                    : form.thumbnail_url
+                      ? 'Thumbnail preview'
+                      : 'Default EduCloud thumbnail'}
+                </span>
               </div>
-              {courseId ? (
-                <div className="course-thumbnail-tools">
-                  <label className="course-thumbnail-upload">
-                    <UploadCloud size={17} />
-                    {isUploadingThumbnail ? 'Uploading...' : 'Upload image'}
-                    <input
-                      className="sr-only"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      disabled={isUploadingThumbnail}
-                      onChange={(event) => void handleThumbnailUpload(event)}
-                    />
-                  </label>
-                  <span>JPG, PNG or WebP, up to 10 MB</span>
-                </div>
-              ) : (
-                <div className="course-thumbnail-tools course-thumbnail-tools-muted">
-                  <ImageIcon size={17} /> Create the course first to upload an image file.
-                </div>
-              )}
+              <div className="course-thumbnail-tools">
+                <label className="course-thumbnail-upload">
+                  <UploadCloud size={17} />
+                  {isUploadingThumbnail ? 'Uploading...' : pendingThumbnailFile ? 'Choose another image' : 'Upload image'}
+                  <input
+                    className="sr-only"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={isUploadingThumbnail}
+                    onChange={handleThumbnailSelection}
+                  />
+                </label>
+                {(pendingThumbnailPreview || form.thumbnail_url) && (
+                  <button
+                    type="button"
+                    className="course-thumbnail-edit"
+                    disabled={isUploadingThumbnail}
+                    onClick={() => void handleEditThumbnail()}
+                  >
+                    <Pencil size={16} /> {isUploadingThumbnail ? 'Preparing...' : 'Edit thumbnail'}
+                  </button>
+                )}
+                <span>JPG, PNG or WebP, up to 10 MB</span>
+              </div>
               {thumbnailNotice && <small className="course-upload-notice" role="status">{thumbnailNotice}</small>}
             </label>
 
@@ -410,6 +531,7 @@ function CreateCoursePage() {
               <span>Status</span>
               <select
                 value={form.status}
+                disabled={!isEditing}
                 aria-invalid={Boolean(fieldErrors.status)}
                 aria-describedby={fieldErrors.status ? 'course-status-error' : undefined}
                 onChange={(event) => {
@@ -422,13 +544,13 @@ function CreateCoursePage() {
                 }}
               >
                 <option value="draft">Draft</option>
-                <option value="published" disabled={!isEditing}>Published</option>
+                <option value="published">Published</option>
                 <option value="hidden">Hidden</option>
               </select>
               {fieldErrors.status && (
                 <small className="course-field-error" id="course-status-error">{fieldErrors.status}</small>
               )}
-              {!isEditing && <small>Create the draft first, then add lessons and publish its final assessment.</small>}
+              {!isEditing && <small>The first save always creates a draft. Publishing is unlocked after lessons and a final assessment are added.</small>}
             </label>
           </div>
           )}
@@ -465,13 +587,45 @@ function CreateCoursePage() {
           <Link className="course-editor-cancel" to="/instructor/courses">Cancel</Link>
           <button className="dashboard-primary-action" type="submit" disabled={isSubmitting || isLoading || isUploadingThumbnail}>
             <Save size={18} />
-            {isSubmitting ? 'Saving...' : isEditing ? 'Save changes' : 'Create course'}
+            {isSubmitting ? 'Saving...' : isEditing ? 'Save changes' : 'Create draft and continue'}
           </button>
         </div>
       </form>
 
+      {!courseId && (
+        <section className="course-next-steps" aria-label="Course setup steps">
+          <div className="course-editor-section-heading">
+            <h2>Available after the draft is created</h2>
+            <p>A course ID is required before lessons, uploaded files, and assessment questions can be saved.</p>
+          </div>
+          <div className="course-next-step-grid">
+            <article>
+              <BookOpen size={22} />
+              <div>
+                <strong>Lessons and files</strong>
+                <span>Add lesson content, videos, and downloadable materials.</span>
+              </div>
+            </article>
+            <article>
+              <ClipboardCheck size={22} />
+              <div>
+                <strong>Final assignment</strong>
+                <span>Add questions, answer options, scoring rules, and publish the assessment.</span>
+              </div>
+            </article>
+          </div>
+        </section>
+      )}
+
       {courseId && <CourseCurriculumEditor courseId={courseId} />}
       {courseId && <AssessmentEditor courseId={courseId} />}
+      {thumbnailCropSource && (
+        <ThumbnailCropEditor
+          imageSrc={thumbnailCropSource}
+          onCancel={closeThumbnailCrop}
+          onSave={handleCroppedThumbnail}
+        />
+      )}
     </section>
   );
 }

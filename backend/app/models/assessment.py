@@ -37,10 +37,23 @@ class AssessmentQuestion(Base):
     prompt = Column(Text, nullable=False)
     options = Column(JSON, nullable=False, default=list)
     correct_option_index = Column(Integer, nullable=False)
+    correct_option_indices = Column(JSON, nullable=False, default=list)
+    answer_mode = Column(String(20), nullable=False, default="all")
     explanation = Column(Text, nullable=True)
     order_index = Column(Integer, nullable=False, default=0)
 
     assessment = relationship("CourseAssessment", back_populates="questions")
+
+    @property
+    def normalized_correct_option_indices(self) -> list[int]:
+        values = self.correct_option_indices or []
+        if not values and self.correct_option_index is not None:
+            values = [self.correct_option_index]
+        return sorted({int(value) for value in values})
+
+    @property
+    def allows_multiple(self) -> bool:
+        return self.answer_mode == "all" and len(self.normalized_correct_option_indices) > 1
 
 
 class AssessmentAttempt(Base):

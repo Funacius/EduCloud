@@ -6,13 +6,7 @@ from app.models.user import User
 from app.schemas.profile_schema import StudentProfileUpdate
 
 
-def _require_student(current_user: dict) -> None:
-    if current_user.get("role") != "student":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Student access required")
-
-
 def get_profile(db: Session, current_user: dict) -> dict:
-    _require_student(current_user)
     user = db.get(User, current_user["user_id"])
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -38,7 +32,6 @@ def get_profile(db: Session, current_user: dict) -> dict:
 
 
 def update_profile(db: Session, payload: StudentProfileUpdate, current_user: dict) -> dict:
-    _require_student(current_user)
     profile = db.query(StudentProfile).filter(StudentProfile.user_id == current_user["user_id"]).first()
     if profile is None:
         profile = StudentProfile(user_id=current_user["user_id"], certificate_name=payload.certificate_name.strip())

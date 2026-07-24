@@ -251,6 +251,7 @@ function CourseDetailPage() {
         </div>
         <div className="detail-thumb" aria-hidden="true">
           <img
+            className={course.thumbnailUrl ? 'has-course-thumbnail' : undefined}
             src={course.thumbnailUrl || logoUrl}
             alt=""
             onError={(event) => {

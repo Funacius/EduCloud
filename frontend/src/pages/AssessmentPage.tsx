@@ -1,4 +1,4 @@
-import { Award, CheckCircle2, ChevronLeft, ClipboardCheck, Clock3, RotateCcw, Send, XCircle } from 'lucide-react';
+import { Award, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Clock3, LayoutDashboard, RotateCcw, Send, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -24,8 +24,10 @@ function AssessmentPage() {
   const [assessment, setAssessment] = useState<StudentAssessment | null>(null);
   const [attemptId, setAttemptId] = useState<number | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [answers, setAnswers] = useState<Record<number, number[]>>({});
   const answersRef = useRef(answers);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [completedQuestions, setCompletedQuestions] = useState<Record<number, boolean>>({});
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,6 +91,8 @@ function AssessmentPage() {
     setError('');
     setResult(null);
     setAnswers({});
+    setCurrentQuestionIndex(0);
+    setCompletedQuestions({});
     autoSubmitted.current = false;
     try {
       const response = await startStudentAssessment(courseId);
@@ -106,10 +110,32 @@ function AssessmentPage() {
     void finishAttempt(false);
   }
 
+  function selectOption(questionId: number, optionIndex: number, allowsMultiple: boolean) {
+    setAnswers((current) => {
+      if (!allowsMultiple) return { ...current, [questionId]: [optionIndex] };
+      const selected = current[questionId] || [];
+      const next = selected.includes(optionIndex)
+        ? selected.filter((index) => index !== optionIndex)
+        : [...selected, optionIndex].sort((a, b) => a - b);
+      return { ...current, [questionId]: next };
+    });
+  }
+
+  function goToQuestion(index: number) {
+    if (!assessment) return;
+    const currentQuestion = assessment.questions[currentQuestionIndex];
+    if (currentQuestion && (answers[currentQuestion.id]?.length || 0) > 0) {
+      setCompletedQuestions((current) => ({ ...current, [currentQuestion.id]: true }));
+    }
+    setCurrentQuestionIndex(index);
+  }
+
   if (isLoading) return <section className="assessment-state">Loading final assessment...</section>;
   if (!assessment) return <section className="assessment-state assessment-state-error"><ClipboardCheck /><strong>{error || 'Assessment unavailable'}</strong><Link to={`/learn/${courseId}`}>Back to course</Link></section>;
 
   const attemptsRemaining = Math.max(assessment.max_attempts - assessment.attempts_used, 0);
+  const answeredCount = assessment.questions.filter((question) => (answers[question.id]?.length || 0) > 0).length;
+  const currentQuestion = assessment.questions[currentQuestionIndex];
 
   return <section className="assessment-page">
     <header className="assessment-hero">
@@ -120,14 +146,14 @@ function AssessmentPage() {
     <main className="assessment-main">
       {error && <div className="dashboard-notice dashboard-notice-error">{error}</div>}
 
-      {assessment.passed && !result ? <section className="assessment-result is-passed"><Award /><span className="eyebrow">Completed</span><h2>You already passed this assessment</h2><p>Your course certificate is available in your profile.</p><Link className="dashboard-primary-action" to="/profile">View certificates</Link></section>
+      {assessment.passed && !result ? <section className="assessment-result is-passed"><Award /><span className="eyebrow">Completed</span><h2>You already passed this assessment</h2><p>Your course certificate is available in your profile.</p><div className="assessment-result-actions"><Link className="dashboard-primary-action" to="/profile"><Award /> View certificates</Link><Link className="assessment-secondary-action" to="/my-learning"><LayoutDashboard /> Back to dashboard</Link></div></section>
       : result ? <section className={result.passed ? 'assessment-result is-passed' : 'assessment-result is-failed'}>
         {result.passed ? <CheckCircle2 /> : <XCircle />}
         <span className="eyebrow">Assessment result</span><strong className="assessment-score">{result.score}%</strong>
         <h2>{result.passed ? 'Assessment passed' : 'Not passed yet'}</h2>
         <p>{result.correct_answers} of {result.total_questions} correct · Required score: {result.passing_score}%</p>
-        {result.passed ? <><p>Your certificate has been issued automatically.</p><Link className="dashboard-primary-action" to="/profile"><Award /> View certificate</Link></>
-        : <button className="dashboard-primary-action" type="button" onClick={() => { setResult(null); void loadAssessment(); }}><RotateCcw /> Review attempts</button>}
+        {result.passed ? <><p>Your certificate has been issued automatically.</p><div className="assessment-result-actions"><Link className="dashboard-primary-action" to="/profile"><Award /> View certificate</Link><Link className="assessment-secondary-action" to="/my-learning"><LayoutDashboard /> Back to dashboard</Link></div></>
+        : <div className="assessment-result-actions"><button className="dashboard-primary-action" type="button" onClick={() => { setResult(null); void loadAssessment(); }}><RotateCcw /> Review attempts</button><Link className="assessment-secondary-action" to="/my-learning"><LayoutDashboard /> Back to dashboard</Link></div>}
       </section>
       : !attemptId ? <section className="assessment-intro-card">
         <ClipboardCheck />
@@ -137,11 +163,49 @@ function AssessmentPage() {
         <button className="dashboard-primary-action" type="button" disabled={!assessment.eligible || attemptsRemaining === 0 || isStarting} onClick={() => void startAttempt()}>{isStarting ? 'Starting...' : 'Start timed assessment'}</button>
       </section>
       : <form className="student-assessment-form" onSubmit={submit}>
-        <div className="assessment-progress-line"><span>{Object.keys(answers).length} of {assessment.questions.length} answered</span><div><i style={{ width: `${assessment.questions.length ? Object.keys(answers).length * 100 / assessment.questions.length : 0}%` }} /></div></div>
-        {assessment.questions.map((question, questionIndex) => <fieldset className="student-question-card" key={question.id}>
-          <legend><span>{questionIndex + 1}</span>{question.prompt}</legend>
-          <div>{question.options.map((option, optionIndex) => <label className={answers[question.id] === optionIndex ? 'is-selected' : ''} key={optionIndex}><input type="radio" name={`question-${question.id}`} checked={answers[question.id] === optionIndex} onChange={() => setAnswers((current) => ({ ...current, [question.id]: optionIndex }))} /><span>{String.fromCharCode(65 + optionIndex)}</span><strong>{option}</strong></label>)}</div>
-        </fieldset>)}
+        <div className="assessment-progress-line"><span>{answeredCount} of {assessment.questions.length} answered</span><div><i style={{ width: `${assessment.questions.length ? answeredCount * 100 / assessment.questions.length : 0}%` }} /></div></div>
+        <aside className="assessment-question-navigator" aria-label="Assessment questions">
+          <header><div><span>Question navigator</span><strong>{assessment.questions.length} questions</strong></div><small>Click any question to review it</small></header>
+          <div>
+            {assessment.questions.map((question, questionIndex) => {
+              const isComplete = Boolean(completedQuestions[question.id]);
+              const isActive = questionIndex === currentQuestionIndex;
+              return <button
+                className={`${isActive ? 'is-active ' : ''}${isComplete ? 'is-complete' : ''}`.trim()}
+                type="button"
+                key={question.id}
+                aria-label={`Question ${questionIndex + 1}${isComplete ? ', answered' : ''}`}
+                aria-current={isActive ? 'step' : undefined}
+                onClick={() => goToQuestion(questionIndex)}
+              >
+                {isComplete ? <CheckCircle2 /> : <span>{questionIndex + 1}</span>}
+                <small>Q{questionIndex + 1}</small>
+              </button>;
+            })}
+          </div>
+        </aside>
+        {currentQuestion && <fieldset className="student-question-card" key={currentQuestion.id}>
+          <legend><span>{currentQuestionIndex + 1}</span>{currentQuestion.prompt}</legend>
+          <p className="student-question-instruction">{currentQuestion.allows_multiple ? 'Select all answers that apply.' : 'Select one answer.'}</p>
+          <div>{currentQuestion.options.map((option, optionIndex) => {
+            const isSelected = (answers[currentQuestion.id] || []).includes(optionIndex);
+            return <label className={isSelected ? 'is-selected' : ''} key={optionIndex}>
+              <input
+                type={currentQuestion.allows_multiple ? 'checkbox' : 'radio'}
+                name={`question-${currentQuestion.id}`}
+                checked={isSelected}
+                onChange={() => selectOption(currentQuestion.id, optionIndex, currentQuestion.allows_multiple)}
+              />
+              <span>{String.fromCharCode(65 + optionIndex)}</span>
+              <strong>{option}</strong>
+            </label>;
+          })}</div>
+          <footer className="assessment-question-actions">
+            <button type="button" disabled={currentQuestionIndex === 0} onClick={() => goToQuestion(currentQuestionIndex - 1)}><ChevronLeft /> Previous</button>
+            <span>Question {currentQuestionIndex + 1} of {assessment.questions.length}</span>
+            <button type="button" disabled={currentQuestionIndex === assessment.questions.length - 1} onClick={() => goToQuestion(currentQuestionIndex + 1)}>Next <ChevronRight /></button>
+          </footer>
+        </fieldset>}
         <div className="assessment-submit-bar"><span><Clock3 /> Submit before {formatTimer(secondsLeft)} reaches zero</span><button className="dashboard-primary-action" type="submit" disabled={isSubmitting}>{isSubmitting ? 'Submitting...' : <><Send /> Submit assessment</>}</button></div>
       </form>}
     </main>

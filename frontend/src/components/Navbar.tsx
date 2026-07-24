@@ -65,12 +65,14 @@ function Navbar() {
       : currentUser.role === 'instructor'
         ? [
             { to: '/courses', label: 'Courses' },
-            { to: '/instructor/courses', label: 'Instructor' }
+            { to: '/instructor/courses', label: 'Instructor' },
+            { to: '/profile', label: 'Profile' }
           ]
         : [
             { to: '/admin', label: 'Admin' },
             { to: '/admin/health', label: 'Health' },
-            { to: '/courses', label: 'Courses' }
+            { to: '/courses', label: 'Courses' },
+            { to: '/profile', label: 'Profile' }
           ]
     : [{ to: '/courses', label: 'Courses' }];
 
@@ -151,6 +153,7 @@ function Navbar() {
                   }}
                 >
                   <img
+                    className={course.thumbnailUrl ? 'has-course-thumbnail' : undefined}
                     src={course.thumbnailUrl || logoUrl}
                     alt=""
                     onError={(event) => {

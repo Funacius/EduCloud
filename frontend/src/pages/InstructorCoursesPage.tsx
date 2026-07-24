@@ -172,6 +172,7 @@ function InstructorCoursesPage() {
                   <td>
                     <div className="course-table-course">
                       <img
+                        className={course.thumbnail_url ? 'has-course-thumbnail' : undefined}
                         src={course.thumbnail_url || logoUrl}
                         alt=""
                         onError={(event) => {

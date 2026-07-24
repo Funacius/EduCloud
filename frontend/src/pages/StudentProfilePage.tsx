@@ -1,6 +1,7 @@
 import { Award, BriefcaseBusiness, CalendarDays, CheckCircle2, Clock3, RefreshCw, Save, Send, UserRound, XCircle } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { getRoleHome, useAuth } from '../auth/AuthContext';
 import {
   getMyInstructorRequest,
   submitInstructorRequest,
@@ -20,7 +21,12 @@ const emptyApplication: InstructorRequestPayload = {
 
 function StudentProfilePage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const shouldApplyAsInstructor = searchParams.get('apply') === 'instructor';
+  const isSetupRequired = searchParams.get('setup') === 'required';
+  const continuePath = searchParams.get('continue');
+  const isStudent = currentUser?.role === 'student';
   const [profile, setProfile] = useState(emptyProfile);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,7 +38,12 @@ function StudentProfilePage() {
   const [isRefreshingApplication, setIsRefreshingApplication] = useState(false);
 
   useEffect(() => {
-    Promise.all([getStudentProfile(), getMyInstructorRequest()])
+    const profileRequest = getStudentProfile();
+    const applicationRequest = isStudent
+      ? getMyInstructorRequest()
+      : Promise.resolve({ data: null });
+
+    Promise.all([profileRequest, applicationRequest])
       .then(([profileResponse, applicationResponse]) => {
         if (profileResponse.data) setProfile(profileResponse.data);
         const existing = applicationResponse.data;
@@ -47,7 +58,7 @@ function StudentProfilePage() {
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : 'Unable to load profile.'))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [isStudent]);
 
   useEffect(() => {
     if (!notice) return;
@@ -56,11 +67,11 @@ function StudentProfilePage() {
   }, [notice]);
 
   useEffect(() => {
-    if (isLoading || !shouldApplyAsInstructor) return;
+    if (isLoading || !shouldApplyAsInstructor || !isStudent) return;
     setNotice('Account created. Complete the Instructor application below for Admin review.');
     const timer = window.setTimeout(() => document.getElementById('instructor-application')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
     return () => window.clearTimeout(timer);
-  }, [isLoading, shouldApplyAsInstructor]);
+  }, [isLoading, shouldApplyAsInstructor, isStudent]);
 
   const setField = (field: keyof StudentProfile, value: string) => setProfile((current) => ({ ...current, [field]: value || null }));
   const setApplicationField = (field: keyof InstructorRequestPayload, value: string) => setApplicationForm((current) => ({ ...current, [field]: value || null }));
@@ -78,6 +89,16 @@ function StudentProfilePage() {
         bio: profile.bio
       });
       if (response.data) setProfile(response.data);
+      if (isSetupRequired && currentUser) {
+        if (shouldApplyAsInstructor && isStudent) {
+          navigate('/profile?apply=instructor', { replace: true });
+          setNotice('Profile saved. Complete the Instructor application below.');
+          return;
+        }
+        const safeContinuePath = continuePath?.startsWith('/') ? continuePath : null;
+        navigate(safeContinuePath || getRoleHome(currentUser.role), { replace: true });
+        return;
+      }
       setNotice('Profile and certificate information saved.');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to save profile.');
@@ -109,38 +130,48 @@ function StudentProfilePage() {
     } finally { setIsRefreshingApplication(false); }
   }
 
-  if (isLoading) return <section className="learning-state">Loading student profile...</section>;
+  if (isLoading) return <section className="learning-state">Loading account profile...</section>;
 
   return <section className="dashboard-page student-profile-page">
     <header className="dashboard-header">
-      <div><span className="eyebrow">Student profile</span><h1>Personal & certificate details</h1><p>Keep your certificate name accurate before completing a course.</p></div>
+      <div>
+        <span className="eyebrow">{isSetupRequired ? 'Account setup' : 'Account profile'}</span>
+        <h1>{isSetupRequired ? 'Complete your profile' : 'Personal details'}</h1>
+        <p>
+          {isSetupRequired
+            ? 'Review your information before continuing to EduCloud.'
+            : isStudent
+              ? 'Keep your certificate name accurate before completing a course.'
+              : 'Keep your account information current.'}
+        </p>
+      </div>
     </header>
     {notice && <div className="dashboard-notice dashboard-notice-success">{notice}</div>}
     {error && <div className="dashboard-notice dashboard-notice-error">{error}</div>}
-    <div className="profile-layout">
+    <div className={`profile-layout${isStudent ? '' : ' profile-layout-account-only'}`}>
       <form className="profile-form-card" onSubmit={saveProfile}>
         <div className="profile-card-heading"><UserRound /><div><h2>Basic information</h2><p>Your login email is read-only.</p></div></div>
         <div className="profile-fields">
           <label><span>Account name</span><input value={profile.full_name} disabled /></label>
           <label><span>Email</span><input value={profile.email} disabled /></label>
-          <label className="profile-field-wide"><span>Name printed on certificate *</span><input required minLength={2} maxLength={120} value={profile.certificate_name} onChange={(event) => setField('certificate_name', event.target.value)} /></label>
+          <label className="profile-field-wide"><span>{isStudent ? 'Name printed on certificate' : 'Display name'} *</span><input required minLength={2} maxLength={120} value={profile.certificate_name} onChange={(event) => setField('certificate_name', event.target.value)} /></label>
           <label><span>Date of birth</span><input type="date" value={profile.date_of_birth || ''} onChange={(event) => setField('date_of_birth', event.target.value)} /></label>
           <label><span>Country</span><input maxLength={100} value={profile.country || ''} onChange={(event) => setField('country', event.target.value)} /></label>
           <label className="profile-field-wide"><span>School / organization</span><input maxLength={160} value={profile.organization || ''} onChange={(event) => setField('organization', event.target.value)} /></label>
           <label className="profile-field-wide"><span>About you</span><textarea rows={4} maxLength={1000} value={profile.bio || ''} onChange={(event) => setField('bio', event.target.value)} /></label>
         </div>
-        <button className="dashboard-primary-action profile-save" type="submit" disabled={isSaving}><Save />{isSaving ? 'Saving...' : 'Save profile'}</button>
+        <button className="dashboard-primary-action profile-save" type="submit" disabled={isSaving}><Save />{isSaving ? 'Saving...' : isSetupRequired ? 'Save and continue' : 'Save profile'}</button>
       </form>
-      <aside className="certificate-panel">
+      {isStudent && <aside className="certificate-panel">
         <div className="profile-card-heading"><Award /><div><h2>Certificates</h2><p>Issued after completing all lessons and passing the final assessment.</p></div></div>
         {profile.certificates.length === 0 ? <div className="certificate-empty"><Award /><strong>No certificates yet</strong><p>Complete a course and pass its final assessment to receive one.</p></div> : <div className="certificate-list">
           {profile.certificates.map((certificate) => <article className="certificate-card" key={certificate.id}>
             <Award /><div><span className="eyebrow">Certificate of completion</span><h3>{certificate.course_title}</h3><p>Awarded to <strong>{certificate.recipient_name}</strong></p><small><CalendarDays /> {new Date(certificate.issued_at).toLocaleDateString()}</small><Link to={`/certificates/${certificate.id}`}>View certificate</Link>{certificate.file_url && <a href={certificate.file_url} target="_blank" rel="noreferrer">Download stored PDF</a>}</div>
           </article>)}
         </div>}
-      </aside>
+      </aside>}
     </div>
-    <section className="instructor-application-card" id="instructor-application">
+    {isStudent && <section className="instructor-application-card" id="instructor-application">
       <div className="profile-card-heading"><BriefcaseBusiness /><div><h2>Become an instructor</h2><p>Apply to create and publish courses. An administrator must approve instructor access.</p></div></div>
 
       {application?.status === 'pending' && <div className="application-status application-status-pending">
@@ -166,7 +197,7 @@ function StudentProfilePage() {
         </div>
         <button className="dashboard-primary-action" type="submit" disabled={isSubmittingApplication}><Send />{isSubmittingApplication ? 'Submitting...' : application ? 'Resubmit application' : 'Submit application'}</button>
       </form>}
-    </section>
+    </section>}
   </section>;
 }
 

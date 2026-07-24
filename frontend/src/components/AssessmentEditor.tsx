@@ -1,4 +1,4 @@
-import { CheckCircle2, CirclePlus, ClipboardCheck, Save, Trash2, X } from 'lucide-react';
+import { CheckCircle2, CirclePlus, ClipboardCheck, GripVertical, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   getInstructorAssessment,
@@ -8,7 +8,13 @@ import {
 } from '../services/assessmentService';
 
 const emptyQuestion = (order: number): AssessmentQuestionEditor => ({
-  prompt: '', options: ['', ''], correct_option_index: 0, explanation: null, order_index: order
+  prompt: '',
+  options: ['', ''],
+  correct_option_index: 0,
+  correct_option_indices: [0],
+  answer_mode: 'all',
+  explanation: null,
+  order_index: order
 });
 
 const emptyAssessment = (courseId: string): InstructorAssessment => ({
@@ -29,6 +35,8 @@ function AssessmentEditor({ courseId }: { courseId: string }) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [draggedOption, setDraggedOption] = useState<{ questionIndex: number; optionIndex: number } | null>(null);
+  const [dragOverOption, setDragOverOption] = useState<{ questionIndex: number; optionIndex: number } | null>(null);
 
   useEffect(() => {
     getInstructorAssessment(courseId)
@@ -50,11 +58,75 @@ function AssessmentEditor({ courseId }: { courseId: string }) {
     }));
   };
 
+  const toggleCorrectOption = (questionIndex: number, optionIndex: number) => {
+    const question = assessment.questions[questionIndex];
+    const current = question.correct_option_indices.length
+      ? question.correct_option_indices
+      : question.correct_option_index !== null ? [question.correct_option_index] : [];
+    if (current.includes(optionIndex) && current.length === 1) {
+      setError('Each question must keep at least one correct option.');
+      return;
+    }
+    setError('');
+    const correct = current.includes(optionIndex)
+      ? current.filter((index) => index !== optionIndex)
+      : [...current, optionIndex].sort((a, b) => a - b);
+    updateQuestion(questionIndex, {
+      ...question,
+      correct_option_index: correct[0] ?? null,
+      correct_option_indices: correct
+    });
+  };
+
+  const removeOption = (questionIndex: number, optionIndex: number) => {
+    const question = assessment.questions[questionIndex];
+    const options = question.options.filter((_, index) => index !== optionIndex);
+    const current = question.correct_option_indices.length
+      ? question.correct_option_indices
+      : question.correct_option_index !== null ? [question.correct_option_index] : [];
+    const correct = current
+      .filter((index) => index !== optionIndex)
+      .map((index) => index > optionIndex ? index - 1 : index);
+    const normalizedCorrect = correct.length ? correct : [0];
+    updateQuestion(questionIndex, {
+      ...question,
+      options,
+      correct_option_index: normalizedCorrect[0],
+      correct_option_indices: normalizedCorrect
+    });
+  };
+
+  const moveOption = (questionIndex: number, fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    const question = assessment.questions[questionIndex];
+    const options = [...question.options];
+    const [movedOption] = options.splice(fromIndex, 1);
+    options.splice(toIndex, 0, movedOption);
+
+    const remapIndex = (index: number) => {
+      if (index === fromIndex) return toIndex;
+      if (fromIndex < toIndex && index > fromIndex && index <= toIndex) return index - 1;
+      if (fromIndex > toIndex && index >= toIndex && index < fromIndex) return index + 1;
+      return index;
+    };
+    const correct = question.correct_option_indices.map(remapIndex).sort((a, b) => a - b);
+    updateQuestion(questionIndex, {
+      ...question,
+      options,
+      correct_option_index: correct[0] ?? null,
+      correct_option_indices: correct
+    });
+  };
+
   async function handleSave(event: FormEvent) {
     event.preventDefault();
     setError('');
     if (assessment.questions.some((question) => !question.prompt.trim() || question.options.some((option) => !option.trim()))) {
       setError('Every question and answer option must contain text.');
+      return;
+    }
+    if (assessment.questions.some((question) => question.correct_option_indices.length === 0)) {
+      setError('Every question must have at least one correct option.');
       return;
     }
     setIsSaving(true);
@@ -99,17 +171,60 @@ function AssessmentEditor({ courseId }: { courseId: string }) {
         {assessment.questions.map((question, questionIndex) => <article className="assessment-question-editor" key={question.id ?? `new-${questionIndex}`}>
           <header><span>Question {questionIndex + 1}</span><button type="button" aria-label={`Remove question ${questionIndex + 1}`} onClick={() => setAssessment((current) => ({ ...current, questions: current.questions.filter((_, index) => index !== questionIndex) }))}><Trash2 /></button></header>
           <label className="course-editor-field"><span>Question *</span><textarea rows={2} required maxLength={1000} value={question.prompt} onChange={(event) => updateQuestion(questionIndex, { ...question, prompt: event.target.value })} /></label>
+          <label className="course-editor-field assessment-answer-mode">
+            <span>How should multiple correct answers be graded?</span>
+            <select value={question.answer_mode} onChange={(event) => updateQuestion(questionIndex, { ...question, answer_mode: event.target.value as 'all' | 'any' })}>
+              <option value="all">Student must select all correct answers</option>
+              <option value="any">Student selects one; any marked answer is accepted</option>
+            </select>
+            <small>{question.answer_mode === 'all'
+              ? 'Mark every correct option. Students receive the point only when their complete selection matches.'
+              : 'Mark every accepted option. Students receive the point when they choose any one of them.'}</small>
+          </label>
           <div className="assessment-options">
-            {question.options.map((option, optionIndex) => <div className="assessment-option-editor" key={optionIndex}>
-              <label title="Correct answer"><input type="radio" name={`correct-${questionIndex}`} checked={question.correct_option_index === optionIndex} onChange={() => updateQuestion(questionIndex, { ...question, correct_option_index: optionIndex })} /><CheckCircle2 /></label>
+            {question.options.map((option, optionIndex) => {
+              const isDragging = draggedOption?.questionIndex === questionIndex && draggedOption.optionIndex === optionIndex;
+              const isDragOver = dragOverOption?.questionIndex === questionIndex && dragOverOption.optionIndex === optionIndex;
+              return <div
+                className={`assessment-option-editor${isDragging ? ' is-dragging' : ''}${isDragOver ? ' is-drag-over' : ''}`}
+                key={optionIndex}
+                onDragOver={(event) => event.preventDefault()}
+                onDragEnter={() => {
+                  if (draggedOption?.questionIndex === questionIndex && draggedOption.optionIndex !== optionIndex) {
+                    setDragOverOption({ questionIndex, optionIndex });
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (draggedOption?.questionIndex === questionIndex) {
+                    moveOption(questionIndex, draggedOption.optionIndex, optionIndex);
+                  }
+                  setDraggedOption(null);
+                  setDragOverOption(null);
+                }}
+              >
+              <button
+                className="assessment-option-drag"
+                type="button"
+                draggable
+                aria-label={`Drag option ${optionIndex + 1} to reorder`}
+                title="Drag to reorder"
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = 'move';
+                  event.dataTransfer.setData('text/plain', String(optionIndex));
+                  setDraggedOption({ questionIndex, optionIndex });
+                }}
+                onDragEnd={() => {
+                  setDraggedOption(null);
+                  setDragOverOption(null);
+                }}
+              ><GripVertical /></button>
+              <label title="Mark as a correct answer"><input type="checkbox" checked={question.correct_option_indices.includes(optionIndex)} onChange={() => toggleCorrectOption(questionIndex, optionIndex)} /><CheckCircle2 /></label>
               <input required maxLength={500} placeholder={`Option ${optionIndex + 1}`} value={option} onChange={(event) => updateQuestion(questionIndex, { ...question, options: question.options.map((item, index) => index === optionIndex ? event.target.value : item) })} />
-              <button type="button" disabled={question.options.length <= 2} aria-label={`Remove option ${optionIndex + 1}`} onClick={() => {
-                const options = question.options.filter((_, index) => index !== optionIndex);
-                const correct = question.correct_option_index === optionIndex ? 0 : question.correct_option_index > optionIndex ? question.correct_option_index - 1 : question.correct_option_index;
-                updateQuestion(questionIndex, { ...question, options, correct_option_index: correct });
-              }}><X /></button>
-            </div>)}
-            <button className="assessment-add-option" type="button" disabled={question.options.length >= 6} onClick={() => updateQuestion(questionIndex, { ...question, options: [...question.options, ''] })}><CirclePlus /> Add option</button>
+              <button type="button" disabled={question.options.length <= 2} aria-label={`Remove option ${optionIndex + 1}`} onClick={() => removeOption(questionIndex, optionIndex)}><X /></button>
+            </div>;
+            })}
+            <button className="assessment-add-option" type="button" disabled={question.options.length >= 12} onClick={() => updateQuestion(questionIndex, { ...question, options: [...question.options, ''] })}><CirclePlus /> Add option ({question.options.length}/12)</button>
           </div>
           <label className="course-editor-field"><span>Explanation after submission (optional)</span><textarea rows={2} maxLength={2000} value={question.explanation || ''} onChange={(event) => updateQuestion(questionIndex, { ...question, explanation: event.target.value })} /></label>
         </article>)}

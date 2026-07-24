@@ -203,6 +203,28 @@ def test_upload_rejects_unsupported_file_type(client: TestClient, tmp_path, monk
     assert response.status_code == 415
 
 
+def test_instructor_can_import_remote_thumbnail(client: TestClient, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "UPLOAD_STORAGE", "local")
+    monkeypatch.setattr(settings, "LOCAL_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(settings, "PUBLIC_BASE_URL", "http://testserver")
+    monkeypatch.setattr(
+        upload_routes,
+        "download_remote_image",
+        lambda url: (b"\x89PNG\r\n\x1a\nimage-content", "image/png", ".png"),
+    )
+    course_id = create_course(client)
+
+    response = client.post(
+        "/api/upload/course-thumbnail/import",
+        json={"course_id": course_id, "url": "https://images.example.com/course.png"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["content_type"] == "image/png"
+    assert response.json()["data"]["url"].startswith("http://testserver/uploads/thumbnails/")
+    assert len(list(tmp_path.rglob("*.png"))) == 1
+
+
 def test_student_cannot_create_course(app):
     app.dependency_overrides[get_current_user] = lambda: {
         "user_id": 2,

@@ -13,24 +13,26 @@ Compared with the last pushed baseline (`4db8c0a`), the backend now includes:
 - Student-only enrollment/progress validation, Instructor ownership enforcement, publish prerequisites, and unique enrollment/progress indexes.
 - Live Student, Instructor, and Admin aggregate data plus Admin course oversight and health-monitoring APIs.
 - Basic security headers and per-IP rate limiting for sensitive authentication routes.
-- Twelve isolated backend tests covering authentication, role workflows, protected content, assessments, certificates, monitoring, and existing course behavior.
+- Fifteen isolated backend tests covering authentication, role workflows, protected content, assessments, certificates, monitoring, migrations, and existing course behavior.
 
 The new SQLAlchemy tables are created when the backend restarts. Existing published courses must receive a published final assessment before new Students can enroll and before enrolled Students can earn certificates.
 
 ## Setup
 
-Copy `.env.example` to `.env`. From Supabase **Connect**, use the Session Pooler URI on port `5432`, change the scheme to `postgresql+psycopg2`, URL-encode the password, and keep `sslmode=require`.
+Create your own Supabase project; never request or reuse another developer's database password. Copy `.env.example` to `.env`, then open Supabase **Connect** and use the Session Pooler URI on port `5432`. Change the scheme to `postgresql+psycopg2`, URL-encode your password, and keep `sslmode=require`.
 
 ```powershell
+Copy-Item .env.example .env
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
+python -m pip install -r requirements-dev.txt
 python -m scripts.check_database
+python -c "import main"
 python -m scripts.seed_dev_accounts
-uvicorn main:app --reload --port 8001
+python -m uvicorn main:app --reload --port 8001
 ```
 
-Startup creates missing SQLAlchemy tables and applies development compatibility columns. Use Alembic migrations before production.
+Only `.env` should contain the completed connection string; it is ignored by Git. Startup creates missing SQLAlchemy tables and applies development compatibility columns. Use Alembic migrations before production.
 
 ## Authentication and roles
 

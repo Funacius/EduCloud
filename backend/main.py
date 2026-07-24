@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app import models  # noqa: F401  (registers all models on Base.metadata before create_all)
 from app.config import settings
 from app.database import Base, engine
-from app.database_migrations import ensure_course_detail_columns, ensure_learning_unique_indexes, ensure_user_auth_columns
+from app.database_migrations import ensure_assessment_answer_columns, ensure_course_detail_columns, ensure_learning_unique_indexes, ensure_user_auth_columns
 from app.routes import admin_routes, assessment_routes, auth_routes, course_routes, enrollment_routes, instructor_request_routes, lesson_routes, profile_routes, progress_routes, upload_routes
 from app.middleware.security_middleware import apply_security_headers, is_rate_limited
 from app.services.monitoring_service import record_request
@@ -19,6 +19,7 @@ Base.metadata.create_all(bind=engine)
 ensure_course_detail_columns(engine)
 ensure_user_auth_columns(engine)
 ensure_learning_unique_indexes(engine)
+ensure_assessment_answer_columns(engine)
 
 app = FastAPI(title=settings.APP_NAME)
 

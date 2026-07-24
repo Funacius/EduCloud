@@ -28,13 +28,15 @@ npm run dev
 
 ```dotenv
 VITE_API_BASE_URL=http://127.0.0.1:8001/api
-VITE_COGNITO_REGION=ap-southeast-1
-VITE_COGNITO_USER_POOL_ID=ap-southeast-1_bIWZwCo0P
-VITE_COGNITO_CLIENT_ID=6o2l010t3eusindbdhh99paud9
+VITE_COGNITO_REGION=YOUR_AWS_REGION
+VITE_COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
+VITE_COGNITO_CLIENT_ID=YOUR_COGNITO_APP_CLIENT_ID
 VITE_ALLOW_LEGACY_AUTH=true
 ```
 
 Open `http://localhost:5173`. The backend must be running on port `8001`.
+
+The Cognito values identify the developer's own User Pool and public app client. They must match the backend configuration. Never put `DATABASE_URL`, a Supabase password, `JWT_SECRET_KEY`, or AWS access keys in a `VITE_*` variable because frontend variables are included in the browser bundle.
 
 ## Implemented UI flows
 

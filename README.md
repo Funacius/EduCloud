@@ -117,34 +117,74 @@ Development compatibility migrations add missing course detail and user auth col
 
 ## Run locally with Supabase
 
-Prerequisites: Python 3.11+, Node.js 18+, and a Supabase project.
+Prerequisites: Python 3.11+, Node.js 18+, your own Supabase project, and your own Amazon Cognito User Pool.
 
-1. Copy `backend/.env.example` to `backend/.env` and set the Supabase Session Pooler URI:
+### 1. Create and connect your own database
+
+Each installation must use its own Supabase project. Do not reuse another developer's database password or committed connection string.
+
+1. Create a project in Supabase and save the database password in a password manager.
+2. Open **Connect**, choose **Session Pooler**, and copy the URI using port `5432`.
+3. Change the URI scheme from `postgresql://` to `postgresql+psycopg2://`.
+4. URL-encode the database password and ensure the URI ends with `sslmode=require`.
+5. Create the ignored local environment file:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+To URL-encode a password containing characters such as `@`, `#`, `%`, or `/`:
+
+```powershell
+$password = Read-Host "Supabase database password"
+[uri]::EscapeDataString($password)
+Remove-Variable password
+```
+
+Place the encoded result only in `backend/.env`:
 
 ```dotenv
 DATABASE_URL=postgresql+psycopg2://postgres.PROJECT_REF:URL_ENCODED_PASSWORD@POOLER_HOST:5432/postgres?sslmode=require
 APP_ENV=development
 ENABLE_DEV_AUTH=true
 JWT_SECRET_KEY=replace-with-a-long-random-value
-COGNITO_REGION=ap-southeast-1
-COGNITO_USER_POOL_ID=ap-southeast-1_bIWZwCo0P
-COGNITO_CLIENT_ID=6o2l010t3eusindbdhh99paud9
+COGNITO_REGION=YOUR_AWS_REGION
+COGNITO_USER_POOL_ID=YOUR_COGNITO_USER_POOL_ID
+COGNITO_CLIENT_ID=YOUR_COGNITO_APP_CLIENT_ID
 ALLOW_LEGACY_AUTH=true
 ```
 
-2. Install, verify, migrate, and seed the backend:
+Generate a separate JWT secret for each installation:
+
+```powershell
+$bytes = New-Object byte[] 64
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+[Convert]::ToBase64String($bytes)
+Remove-Variable bytes
+```
+
+`backend/.env` is ignored by Git. Never put `DATABASE_URL`, the database password, or `JWT_SECRET_KEY` in the README, Dockerfile, frontend variables, screenshots, or commits.
+
+### 2. Initialize the backend
+
+Install dependencies, verify the connection, create the EduCloud tables, and optionally seed local development accounts:
 
 ```powershell
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
+python -m pip install -r requirements-dev.txt
 python -m scripts.check_database
+python -c "import main"
 python -m scripts.seed_dev_accounts
-uvicorn main:app --reload --port 8001
+python -m uvicorn main:app --reload --port 8001
 ```
 
-3. Start the frontend in a second terminal:
+The first backend import/start creates the required tables in that developer's Supabase database. `scripts.check_database` prints the connected database and user without printing the password.
+
+### 3. Configure and start the frontend
+
+Create `frontend/.env`, then replace all `YOUR_*` values with the same Cognito configuration used by the backend:
 
 ```powershell
 cd frontend

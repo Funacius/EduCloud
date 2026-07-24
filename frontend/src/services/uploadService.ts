@@ -24,6 +24,16 @@ export function uploadCourseThumbnail(file: File, courseId: string) {
   return uploadFile('/upload/course-thumbnail', file, courseId);
 }
 
+export function importCourseThumbnail(url: string, courseId: string): Promise<ApiResponse<UploadResult>> {
+  return apiRequest('/upload/course-thumbnail/import', {
+    method: 'POST',
+    body: JSON.stringify({
+      course_id: Number(courseId),
+      url
+    })
+  });
+}
+
 export function uploadLessonMaterial(file: File, courseId: string) {
   return uploadFile('/upload/lesson-material', file, courseId);
 }

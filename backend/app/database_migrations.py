@@ -57,3 +57,37 @@ def ensure_learning_unique_indexes(engine: Engine) -> None:
                 connection.execute(text(statement))
         except SQLAlchemyError:
             logger.warning("Could not create a learning uniqueness index; check the table for duplicate rows", exc_info=True)
+
+
+def ensure_assessment_answer_columns(engine: Engine) -> None:
+    """Keep existing single-answer questions compatible with multi-answer assessments."""
+    inspector = inspect(engine)
+    if "assessment_questions" not in inspector.get_table_names():
+        return
+
+    existing = {column["name"] for column in inspector.get_columns("assessment_questions")}
+    json_default = "'[]'::json" if engine.dialect.name == "postgresql" else "'[]'"
+    with engine.begin() as connection:
+        if "correct_option_indices" not in existing:
+            connection.execute(text(
+                f"ALTER TABLE assessment_questions "
+                f"ADD COLUMN correct_option_indices JSON NOT NULL DEFAULT {json_default}"
+            ))
+        if "answer_mode" not in existing:
+            connection.execute(text(
+                "ALTER TABLE assessment_questions "
+                "ADD COLUMN answer_mode VARCHAR(20) NOT NULL DEFAULT 'all'"
+            ))
+
+        if engine.dialect.name == "postgresql":
+            connection.execute(text(
+                "UPDATE assessment_questions "
+                "SET correct_option_indices = json_build_array(correct_option_index) "
+                "WHERE correct_option_indices::text = '[]'"
+            ))
+        elif engine.dialect.name == "sqlite":
+            connection.execute(text(
+                "UPDATE assessment_questions "
+                "SET correct_option_indices = json_array(correct_option_index) "
+                "WHERE correct_option_indices = '[]'"
+            ))

@@ -58,6 +58,14 @@ def _expires_at(assessment: CourseAssessment, attempt: AssessmentAttempt) -> dat
     return _as_utc(attempt.started_at) + timedelta(minutes=assessment.time_limit_minutes)
 
 
+def _is_correct_answer(question: AssessmentQuestion, selected_indices: list[int]) -> bool:
+    selected = set(selected_indices)
+    correct = set(question.normalized_correct_option_indices)
+    if question.answer_mode == "any":
+        return len(selected) == 1 and bool(selected & correct)
+    return selected == correct
+
+
 def _finalize_expired_attempts(db: Session, assessment: CourseAssessment, user_id: int) -> None:
     changed = False
     for attempt in db.query(AssessmentAttempt).filter_by(
@@ -136,6 +144,8 @@ def save_instructor_assessment(db: Session, course_id: int, payload: AssessmentU
             prompt=question.prompt.strip(),
             options=question.options,
             correct_option_index=question.correct_option_index,
+            correct_option_indices=question.correct_option_indices,
+            answer_mode=question.answer_mode,
             explanation=question.explanation.strip() if question.explanation else None,
             order_index=question.order_index if question.order_index is not None else index,
         ))
@@ -222,11 +232,19 @@ def submit_student_assessment(db: Session, course_id: int, payload: AssessmentSu
     if attempt.submitted_at is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This assessment attempt has already been submitted")
 
-    submitted_answers = {answer.question_id: answer.selected_option_index for answer in payload.answers}
+    submitted_answers = {answer.question_id: answer.selected_option_indices for answer in payload.answers}
+    questions_by_id = {question.id: question for question in assessment.questions}
+    for question_id, selected_indices in submitted_answers.items():
+        question = questions_by_id.get(question_id)
+        if question is None:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="An answer references an unknown question")
+        if any(index >= len(question.options) for index in selected_indices):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="An answer references an unknown option")
+
     expired = _utc_now() > _expires_at(assessment, attempt) + timedelta(seconds=5)
     correct = 0 if expired else sum(
         1 for question in assessment.questions
-        if submitted_answers.get(question.id) == question.correct_option_index
+        if _is_correct_answer(question, submitted_answers.get(question.id, []))
     )
     total = len(assessment.questions)
     score = round(correct * 100 / total) if total else 0

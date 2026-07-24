@@ -39,6 +39,16 @@ function LoginPage() {
       setAuthError(result.error);
       return;
     }
+    if ('requiresNewPassword' in result) {
+      navigate('/set-new-password', {
+        replace: true,
+        state: {
+          from: routeState.from,
+          applyAsInstructor: routeState.applyAsInstructor
+        }
+      });
+      return;
+    }
 
     if (routeState.applyAsInstructor && result.user.role === 'student') {
       navigate('/profile?apply=instructor', { replace: true });

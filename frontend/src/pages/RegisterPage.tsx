@@ -62,7 +62,12 @@ function RegisterPage() {
       });
       return;
     }
-    navigate(accountType === 'instructor' ? '/profile?apply=instructor' : '/profile', { replace: true });
+    navigate(
+      accountType === 'instructor'
+        ? '/profile?setup=required&apply=instructor'
+        : '/profile?setup=required',
+      { replace: true }
+    );
   };
 
   return (

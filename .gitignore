@@ -23,6 +23,9 @@ backend/uploads/
 .DS_Store
 Thumbs.db
 
+# Local deployment artifacts
+*.zip
+
 # AI tooling config (local only, not shared with the team)
 .claude/
 CLAUDE.md
